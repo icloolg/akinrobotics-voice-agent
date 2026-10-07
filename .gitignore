@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Downloaded models and generated index (rebuilt by scripts)
+models/
+data/
+logs/
