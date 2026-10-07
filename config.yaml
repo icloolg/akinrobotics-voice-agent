@@ -34,6 +34,10 @@ rag:
   top_k: 3
   min_score: 0.80         # below this cosine similarity -> "I don't know"
 
+router:                   # small talk vs knowledge question (see app/agent/router.py)
+  min_score: 0.90         # chitchat similarity needed
+  margin: 0.10            # chitchat must beat the knowledge score by this much
+
 tts:
   provider: piper
   voices_dir: models/piper

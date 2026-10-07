@@ -11,7 +11,8 @@ from app.factory import build_agent
 from app.logging_setup import setup_logging
 
 TR_CHARS = set("çğıöşüÇĞİÖŞÜ")
-TR_WORDS = {"ne", "nedir", "nasıl", "kaç", "mi", "mı", "mu", "mü", "bir", "ve", "hangi", "neden"}
+TR_WORDS = {"ne", "nedir", "nasıl", "kaç", "mi", "mı", "mu", "mü", "bir", "ve", "hangi", "neden",
+            "sen", "kimsin", "merhaba", "selam", "teşekkürler"}
 
 
 def guess_language(text: str) -> str:

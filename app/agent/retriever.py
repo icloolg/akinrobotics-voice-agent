@@ -38,9 +38,13 @@ class Retriever:
     def _embed_passages(self, texts: list[str]):
         return self.model.encode(["passage: " + t for t in texts], normalize_embeddings=True).tolist()
 
-    def search(self, question: str, top_k: int = 3) -> list[Chunk]:
+    def encode_query(self, question: str) -> list[float]:
+        return self._embed_queries([question])[0]
+
+    def search(self, question: str, top_k: int = 3, vector: list[float] | None = None) -> list[Chunk]:
+        """Pass `vector` if the question was already embedded (avoids doing it twice)."""
         res = self.collection.query(
-            query_embeddings=self._embed_queries([question]), n_results=top_k
+            query_embeddings=[vector or self.encode_query(question)], n_results=top_k
         )
         chunks = []
         for text, meta, dist in zip(res["documents"][0], res["metadatas"][0], res["distances"][0]):

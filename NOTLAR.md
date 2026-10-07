@@ -33,6 +33,16 @@ README'ye girecek bulgular ve açık işler.
     işleme 2246 → 1891 ms. Mini Ada İngilizce sorusu düzeldi (2.5 sa ❌ → 8 sa ✅). Süre bağlamdaki
     token sayısıyla doğrusal (~5 ms/token): 3 parçalı sorular ~3.5 sn, 1-2 parçalı ~1 sn.
 
+12. **İlk gerçek sesli test (kendi mikrofonumla):** İlk ses 1.25–2.6 sn. Whisper "Ada-7"yi
+    "other 7" duydu ama anlamsal arama yine Ada-7 parçasını buldu, cevap doğru → STT hatalarına dayanıklı.
+13. **Sohbet sorunu:** "Sen kimsin?", "How are you?" → "bilgi bulamadım". Güvenli ama doğal değil.
+14. **Anlamsal yönlendirme (router):** Soru, sohbet örnek cümleleriyle karşılaştırılıyor (aynı e5 modeli,
+    ek model yok). Tek kural ("sohbet skoru > bilgi skoru") "Robotlarınız neler yapabilir?" sorusunu
+    yanlışlıkla sohbete gönderiyordu (0.916 vs 0.863). İki koşul: sohbet ≥ 0.90 VE fark ≥ 0.10.
+    20 test sorusunda: sohbet 7/8, bilgi 7/7, kapsam dışı 5/5 doğru yolda. Sohbet cevapları ~150–600 ms.
+15. **Sohbet promptunun dili:** İngilizce prompt ile Türkçe cevaplarda dil karıştı ("robots hakkında",
+    "robotuddur"). Her dil için kendi dilinde prompt + hazır tanıtım cümlesi → düzeldi.
+
 ## Açık işler
 
 - [ ] **Dil karışması:** İngilizce soruya bir kez Türkçe ve yanlış cevap verdi (şarj süresi ile

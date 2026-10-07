@@ -18,6 +18,25 @@ SYSTEM = (
     "4. No lists, tables, emoji or markdown; plain spoken language only."
 )
 
+# Used when the router decides the user is making small talk (no CONTEXT given).
+# Written in the answer language: with an English prompt the 3B model mixed
+# English words into Turkish replies. The prompt is short, so caching does not matter here.
+CHITCHAT_SYSTEM = {
+    "tr": (
+        "Sen AKINROBOTICS'in sesli asistanısın. Kullanıcı sohbet ediyor (selam, teşekkür, kim olduğunu sorma). "
+        "Bir veya iki kısa, doğal Türkçe cümleyle samimi cevap ver. Kendini tanıtman gerekirse "
+        "şunu söyle: 'Ben AKINROBOTICS'in sesli asistanıyım, robotlarımız ve yazılımlarımız hakkındaki "
+        "sorularınızı cevaplayabilirim.' Hiçbir teknik bilgi, sayı veya özellik söyleme. "
+        "Emoji veya markdown kullanma."
+    ),
+    "en": (
+        "You are the voice assistant of AKINROBOTICS. The user is making small talk (greeting, thanks, "
+        "asking who you are). Reply warmly in one or two short sentences. If you introduce yourself, say: "
+        "'I'm the AKINROBOTICS voice assistant, I can answer questions about our robots and software.' "
+        "Never state facts, numbers or specifications. No emoji or markdown."
+    ),
+}
+
 ANSWER_IN = {
     "tr": "Cevabı Türkçe ver.",
     "en": "Answer in English.",
@@ -32,6 +51,10 @@ NO_ANSWER = {
 
 def build_context(chunks) -> str:
     return "\n\n".join(f"[{c.source}]\n{c.text}" for c in chunks)
+
+
+def chitchat_message(question: str, language: str) -> str:
+    return f"{question}\n\n{ANSWER_IN[language]}"
 
 
 def user_message(question: str, context: str, language: str) -> str:

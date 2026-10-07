@@ -37,9 +37,13 @@ def build_retriever(cfg: dict):
 
 def build_agent(cfg: dict, llm=None, retriever=None):
     from app.agent.agent import Agent
+    from app.agent.router import Router
+    retriever = retriever or build_retriever(cfg)
+    router = Router(retriever._embed_queries, **cfg.get("router", {}))
     return Agent(
         llm or build_llm(cfg),
-        retriever or build_retriever(cfg),
+        retriever,
+        router,
         top_k=cfg["rag"]["top_k"],
         min_score=cfg["rag"]["min_score"],
         history_turns=cfg["llm"]["history_turns"],

@@ -73,6 +73,7 @@ class VoicePipeline:
             "language": lang,
             "question": transcript.text,
             "answer": result.answer,
+            "route": result.route,
             "grounded": result.grounded,
             "sources": sorted({c.source for c in result.chunks}) if result.grounded else [],
             "retrieval_ms": result.retrieval_ms,
