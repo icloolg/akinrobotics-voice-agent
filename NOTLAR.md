@@ -43,6 +43,27 @@ README'ye girecek bulgular ve açık işler.
 15. **Sohbet promptunun dili:** İngilizce prompt ile Türkçe cevaplarda dil karıştı ("robots hakkında",
     "robotuddur"). Her dil için kendi dilinde prompt + hazır tanıtım cümlesi → düzeldi.
 
+16. **Kendi sesimle 18 cümlelik STT test seti** (tests/voice/sentences.csv, scripts/eval_stt.py):
+    - Mikrofon seviyesi 65: dil 13/18, WER 0.62, tam doğru 5/18. Kayıtlar çok sessizdi (tepe ~0.05).
+    - Mikrofon seviyesi 100: dil 16/18, WER 0.38, tam doğru 8/18. Kod değişmeden hata %39 azaldı.
+    - Yazılımla ses yükseltme (normalize) fayda etmedi: gürültü de büyüyor.
+    - Hotwords kapatınca WER arttı (0.62 → 0.67/0.77): faydalı, kalıyor.
+17. **Dil seçim kuralı** (aynı 18 kayıtta karşılaştırıldı):
+    - "Emin değilse Türkçe" (eşik 0.7): İngilizce cümleleri Türkçeye zorladı, Whisper ÇEVİRİ yaptı
+      ("Hello how are you" → "Merhaba, nasılsınız?"). 16/18.
+    - "tr/en hangisi yüksekse": kısa Türkçe kelimeleri İngilizce sandı ("Nerede" → "Merida"). 15/18.
+    - **Seçilen:** varsayılan Türkçe; İngilizceye ancak P(en) ≥ 0.3 VE P(en) > 2×P(tr) ise geç → **18/18, WER 0.30.**
+18. **Kalan STT hataları** çoğunlukla kelime düzeyinde ("kalp taktayanıyor", "BENDİ VEN"). Daha büyük
+    model (medium/turbo) denemesi indirme takıldığı için yarım kaldı; 4 GB VRAM'de LLM ile sığması da şüpheli.
+
+19. **Parçalama (chunking) hatası:** 600 karakterlik paketleme ilgisiz bölümleri tek parçada birleştirdi
+    ("Misyon ve Vizyon" + "Ürün Gamı" + bir sonraki bölümün yarım başlığı). Karışık parçanın vektörü
+    hiçbir konuya tam uymadı → "Hangi robotlarınız var?" sadece "ARAT ve AKINCI-5" dedi.
+    **Bölüm bazlı parçalama** (her `##` bölümü bir parça, başında "doküman - bölüm" başlığı, kaynak URL
+    meta veri olarak): robot listesi sorularında Ürün Gamı 0/4 → 4/4 ilk 3'te; 9 bilgi sorusunun 9'unda
+    1. sıradaki parça doğru bölüm (önceden "Ada-7 kaç kilo?" için Mini Ada 1. sıradaydı). Yönlendirme
+    ve eşik değişmeden 21/21 doğru. Cevap artık 9 robotu sayıyor.
+
 ## Açık işler
 
 - [ ] **Dil karışması:** İngilizce soruya bir kez Türkçe ve yanlış cevap verdi (şarj süresi ile

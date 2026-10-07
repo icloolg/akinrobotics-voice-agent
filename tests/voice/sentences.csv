@@ -1,0 +1,19 @@
+id,language,category,text
+01,tr,kisa,Nerede?
+02,tr,kisa,Evet.
+03,tr,kisa,Hoşça kal.
+04,tr,sohbet,Merhaba nasılsın?
+05,tr,sohbet,Sen kimsin?
+06,tr,bilgi,Ada-7 kaç kilogram?
+07,tr,bilgi,Mini Ada'nın bataryası kaç saat dayanıyor?
+08,tr,bilgi,ARAT merdiven çıkabilir mi?
+09,tr,bilgi,AKINCI-5 ne kadar hızlı yürüyebilir?
+10,tr,bilgi,AMR en fazla kaç kilogram yük taşır?
+11,tr,bilgi,Hangi robotlarınız var?
+12,tr,bilgi,AROS nedir?
+13,tr,kapsam_disi,Bugün hava nasıl?
+14,en,sohbet,Hello how are you?
+15,en,bilgi,How much does Ada-7 weigh?
+16,en,bilgi,What is AROS?
+17,en,bilgi,Can ARAT climb stairs?
+18,en,kapsam_disi,Who won the World Cup?

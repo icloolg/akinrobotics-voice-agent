@@ -8,3 +8,8 @@ venv/
 models/
 data/
 logs/
+
+# Personal voice recordings (kept local)
+tests/voice/recordings/
+logs_server.txt
+tests/voice/recordings_mic65/

@@ -9,8 +9,9 @@ def build_stt(cfg: dict):
     c = cfg["stt"]
     if c["provider"] == "faster_whisper":
         from app.providers.stt.faster_whisper import FasterWhisperSTT
-        return FasterWhisperSTT(c["model"], c["device"], c["compute_type"],
-                                c["languages"], c.get("hotwords"))
+        return FasterWhisperSTT(c["model"], c["device"], c["compute_type"], c["languages"],
+                                c.get("hotwords"), c.get("default_language", "tr"),
+                                c.get("switch_min_prob", 0.3), c.get("switch_ratio", 2.0))
     raise ValueError(f"Unknown STT provider: {c['provider']}")
 
 
