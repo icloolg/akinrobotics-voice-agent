@@ -1,0 +1,4 @@
+# Tests (no GPU or model downloads needed):  pytest
+-r requirements.txt
+pytest>=8
+httpx>=0.27             # used by FastAPI's test client

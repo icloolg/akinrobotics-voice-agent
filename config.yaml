@@ -8,6 +8,12 @@ vad:
   threshold: 0.5          # Silero speech probability needed to count as speech
   min_silence_ms: 500     # silence that ends an utterance; directly adds to perceived latency
   max_seconds: 15         # cut very long utterances
+  min_speech_ms: 100      # less voiced audio than this (click, cough) is not sent to STT
+  # Barge-in: the user can talk over the answer; the agent stops and listens.
+  # Needs echo cancellation on the client (the browser client has it). The
+  # Python client mutes its mic while playing, so nothing is interrupted there.
+  barge_in: true
+  barge_in_ms: 250        # voiced audio needed to interrupt; shorter sounds during an answer are ignored
 
 stt:
   provider: faster_whisper
@@ -21,27 +27,59 @@ stt:
   switch_min_prob: 0.3
   switch_ratio: 2.0
   # Domain words Whisper should expect; fixed "A'da 7" -> "Ada-7", "Arap" -> "ARAT".
-  hotwords: AKINROBOTICS, Ada-7, Mini Ada, ARAT, AKINCI-5, AMR, AROS
+  # Inside a Turkish sentence (not a bare name list): on 21 recordings WER 0.35 -> 0.30,
+  # exact 9 -> 11. A bare list of English-looking names pushed short clips to English/CAPS.
+  hotwords: AKINSOFT ve AKINROBOTICS robotları Ada-7, Mini Ada, ARAT, AKINCI-5, AMR ve AROS hakkında sorular.
 
 llm:
-  provider: ollama
+  provider: ollama        # ollama | openai_compat (llama.cpp server, vLLM, LM Studio; see app/providers/llm/)
   model: qwen2.5:3b
   # 127.0.0.1, not "localhost": on Windows "localhost" tries IPv6 first and
   # waits ~2 s before falling back to IPv4 (measured). Override with OLLAMA_BASE_URL.
   base_url: http://127.0.0.1:11434
-  temperature: 0.2
-  history_turns: 1        # previous Q/A pairs kept; each one makes the prompt longer (slower)
+  # num_ctx: 2048         # optional: smaller context window = less VRAM (check "ollama ps" shows 100% GPU)
+  max_tokens: 200         # stops a rambling answer; normal answers are 20-80 tokens
+  temperature: 0          # deterministic: same question -> same answer (0.2 gave 20 vs 21/23 between runs)
+  history_turns: 0        # follow-ups are handled by topic tracking (followup:); measured 0 vs 1 turn: 49 vs 46/53, first sentence 1683 vs 2978 ms
 
 rag:
   embedding_model: intfloat/multilingual-e5-small
   db_path: data/chroma
   knowledge_dir: knowledge
+  # A section longer than this is split at paragraph ends (the title is repeated).
+  # The LLM reads the context at ~5 ms/token on the GTX 1650, so shorter chunks
+  # answer sooner. Changing it needs: python -m scripts.ingest, then scripts.eval_agent.
+  chunk_max_chars: 900
   top_k: 2               # measured: 3 -> 2 = first sentence 3345 -> 2352 ms, accuracy 20 -> 21/23
   min_score: 0.80         # below this cosine similarity -> "I don't know"
+
+followup:                 # follow-up questions without a name (see app/agent/topics.py)
+  # A question naming none of these, that is not small talk or a tool question and
+  # matches no document well (best score < max_score), is searched as
+  # "<last named one>: <question>". Add the names of a new knowledge source here.
+  max_score: 0.85         # follow-ups scored 0.785-0.823 alone, self-contained questions 0.869-0.890
+  topics: [AKINSOFT, AKINROBOTICS, Ada-7, Mini Ada, Servis Robotu V3, Fabrika Servis Robotu,
+           UV-C, AMR, ARAT, AKINCI-5, AROS, İstanbul Robot Müzesi]
 
 router:                   # small talk vs knowledge question (see app/agent/router.py)
   min_score: 0.90         # chitchat similarity needed
   margin: 0.10            # chitchat must beat the knowledge score by this much
+
+tools:                    # live information sources (see app/tools/base.py)
+  enabled: [datetime, robot_status, robot_specs]
+  datetime:
+    min_score: 0.91       # time questions 0.92-0.98; "Bugün hava nasıl?" 0.896
+    margin: 0.10
+    utc_offset_hours: 3
+  robot_status:
+    min_score: 0.84       # + a live-state keyword is required (see robot_status.py)
+    margin: -0.03         # may be slightly below the knowledge score; the keyword rule keeps precision
+    url: http://127.0.0.1:8000/mock/robots   # mock fleet API served by app/main.py
+  robot_specs:            # SQLite, built from knowledge/robot_specs.csv by scripts/ingest.py
+    min_score: 0.89       # + a comparison keyword is required (see robot_specs.py)
+    margin: 0.06          # "Hangi robotlarınız var?" (RAG) scored +0.040 over the knowledge chunk
+    db_path: data/robots.db
+    csv_path: knowledge/robot_specs.csv
 
 tts:
   provider: piper

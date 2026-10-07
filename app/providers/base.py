@@ -30,6 +30,9 @@ class LLMProvider(ABC):
     def stream(self, messages: list[dict]) -> Iterator[str]:
         """Yield the answer piece by piece (tokens)."""
 
+    def warmup(self) -> None:
+        """Load the model before the first user turn (optional)."""
+
 
 class TTSProvider(ABC):
     sample_rate: int

@@ -43,9 +43,15 @@ class Retriever:
 
     def search(self, question: str, top_k: int = 3, vector: list[float] | None = None) -> list[Chunk]:
         """Pass `vector` if the question was already embedded (avoids doing it twice)."""
-        res = self.collection.query(
-            query_embeddings=[vector or self.encode_query(question)], n_results=top_k
-        )
+        query = [vector or self.encode_query(question)]
+        try:
+            res = self.collection.query(query_embeddings=query, n_results=top_k)
+        except Exception:
+            # scripts.ingest rebuilds the collection; a running server still holds the
+            # deleted one and every question failed (seen live). Re-open it once.
+            log.warning("Knowledge collection changed on disk; reloading it")
+            self.collection = self.client.get_collection(COLLECTION)
+            res = self.collection.query(query_embeddings=query, n_results=top_k)
         chunks = []
         for text, meta, dist in zip(res["documents"][0], res["metadatas"][0], res["distances"][0]):
             # Chroma returns cosine *distance* = 1 - similarity.

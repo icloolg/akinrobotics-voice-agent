@@ -1,18 +1,21 @@
-"""Semantic intent routing: is this small talk or a knowledge question?
+"""Semantic intent routing: small talk, a tool, or a knowledge (RAG) question?
 
 Each intent has a few example sentences. The user's question is embedded
 with the same model the retriever uses and compared to every example.
-Small talk is answered conversationally (no facts); everything else goes
-through RAG.
 
-Two conditions, both measured on test questions (see NOTLAR.md):
-  - chitchat score >= min_score          ("Sen kimsin?" 0.979, off-topic max 0.878)
-  - chitchat score - knowledge score >= margin
-    ("Robotlarınız neler yapabilir?" looks like "neler yapabilirsin" (0.916),
-     but its knowledge score is close (0.863), so it must stay on the RAG path.)
+An intent wins when, for its best-matching example:
+  - score >= min_score, and
+  - score - best knowledge-chunk score >= margin, and
+  - (if the intent has keywords) one of them appears in the question.
+If several intents pass, the highest score wins. If none pass -> RAG.
 
-Adding a new intent = adding a new list of examples.
+Why the margin (measured, see NOTLAR.md): "Robotlarınız neler yapabilir?"
+looks like the small-talk example "neler yapabilirsin" (0.916) but is a
+knowledge question (best chunk 0.863), so it must stay on the RAG path.
 """
+import re
+from dataclasses import dataclass, field
+
 import numpy as np
 
 CHITCHAT_EXAMPLES = [
@@ -27,17 +30,49 @@ CHITCHAT_EXAMPLES = [
 ]
 
 
+@dataclass
+class Intent:
+    name: str
+    examples: np.ndarray  # normalized example vectors
+    min_score: float
+    margin: float
+    keywords: list[str] = field(default_factory=list)
+
+
+def _lower(text: str) -> str:
+    return text.replace("İ", "i").replace("I", "ı").lower()
+
+
+def _words(text: str) -> str:
+    """Lowercase, punctuation -> space, padded: keyword " en " then matches the
+    word "en" but not "neden", and "fastest?" still contains "est "."""
+    return " " + re.sub(r"[^\w\s'-]", " ", _lower(text)) + " "
+
+
 class Router:
-    def __init__(self, encoder, min_score: float = 0.90, margin: float = 0.10):
+    def __init__(self, encoder):
         """encoder: function list[str] -> normalized vectors (the retriever's query encoder)."""
-        self.min_score = min_score
-        self.margin = margin
-        self.examples = np.array(encoder(CHITCHAT_EXAMPLES))
+        self.encoder = encoder
+        self.intents: list[Intent] = []
 
-    def chitchat_score(self, query_vector) -> float:
+    def add(self, name: str, examples: list[str], min_score: float, margin: float,
+            keywords: list[str] | None = None) -> None:
+        self.intents.append(Intent(name, np.array(self.encoder(examples)), min_score, margin,
+                                   [_lower(k) for k in keywords or []]))
+
+    def scores(self, query_vector) -> dict[str, float]:
         # Vectors are normalized, so the dot product is the cosine similarity.
-        return float(np.max(self.examples @ np.array(query_vector)))
+        q = np.array(query_vector)
+        return {i.name: float(np.max(i.examples @ q)) for i in self.intents}
 
-    def is_chitchat(self, query_vector, best_knowledge_score: float) -> bool:
-        score = self.chitchat_score(query_vector)
-        return score >= self.min_score and score - best_knowledge_score >= self.margin
+    def route(self, question: str, query_vector, best_knowledge_score: float) -> str | None:
+        """Name of the winning intent, or None for the RAG path."""
+        scores = self.scores(query_vector)
+        text = _words(question)
+        passing = [i for i in self.intents
+                   if scores[i.name] >= i.min_score
+                   and scores[i.name] - best_knowledge_score >= i.margin
+                   and (not i.keywords or any(k in text for k in i.keywords))]
+        if not passing:
+            return None
+        return max(passing, key=lambda i: scores[i.name]).name

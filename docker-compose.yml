@@ -1,0 +1,53 @@
+# Whole system with one command (works on any machine, CPU only):
+#
+#     docker compose up --build
+#
+# then open http://localhost:8000 in a browser.
+#
+# With an NVIDIA GPU (needs the NVIDIA Container Toolkit; Docker Desktop on
+# Windows has it built in), add the GPU file:
+#
+#     docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+#
+# Another LLM:  LLM_MODEL=qwen2.5:7b docker compose up
+
+services:
+  ollama:                       # LLM server
+    image: ollama/ollama
+    volumes:
+      - ollama:/root/.ollama    # downloaded models survive restarts
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ollama-pull:                  # one-shot: downloads the LLM (~2 GB) on first start, then exits
+    image: ollama/ollama
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama", "pull", "${LLM_MODEL:-qwen2.5:3b}"]
+    restart: "no"
+
+  agent:                        # voice server + browser client
+    build: .
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:3b}
+      STT_DEVICE: cpu
+      STT_COMPUTE_TYPE: int8
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro   # change thresholds etc. without rebuilding
+      - ./knowledge:/app/knowledge:ro       # add a document here and restart
+      - ./logs:/app/logs                    # logs/turns.jsonl: one line of measurements per turn
+
+volumes:
+  ollama:

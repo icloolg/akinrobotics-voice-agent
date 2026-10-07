@@ -19,7 +19,13 @@ def build_llm(cfg: dict):
     c = cfg["llm"]
     if c["provider"] == "ollama":
         from app.providers.llm.ollama import OllamaLLM
-        return OllamaLLM(c["model"], c["base_url"], c["temperature"])
+        return OllamaLLM(c["model"], c["base_url"], c["temperature"], c.get("max_tokens"),
+                         c.get("num_ctx"))
+    if c["provider"] == "openai_compat":  # llama.cpp server, vLLM, LM Studio, ...
+        import os
+        from app.providers.llm.openai_compat import OpenAICompatLLM
+        return OpenAICompatLLM(c["model"], c["base_url"], c["temperature"], c.get("max_tokens"),
+                               os.getenv(c.get("api_key_env") or "LLM_API_KEY"))
     raise ValueError(f"Unknown LLM provider: {c['provider']}")
 
 
@@ -36,16 +42,44 @@ def build_retriever(cfg: dict):
     return Retriever(cfg["rag"]["embedding_model"], cfg["rag"]["db_path"])
 
 
+def build_tools(cfg: dict) -> dict:
+    """Tool registry: name in config.yaml -> how to build it.
+    New tool = one entry here + its settings under tools: in config.yaml."""
+    registry = {
+        "datetime": lambda c: _tool("app.tools.datetime_tool", "DateTimeTool")(c.get("utc_offset_hours", 3)),
+        "robot_status": lambda c: _tool("app.tools.robot_status", "RobotStatusTool")(c["url"]),
+        "robot_specs": lambda c: _tool("app.tools.robot_specs", "RobotSpecsTool")(c["db_path"]),
+    }
+    tools_cfg = cfg.get("tools", {})
+    return {name: registry[name](tools_cfg.get(name, {})) for name in tools_cfg.get("enabled", [])}
+
+
+def _tool(module: str, cls: str):
+    import importlib
+    return getattr(importlib.import_module(module), cls)
+
+
 def build_agent(cfg: dict, llm=None, retriever=None):
     from app.agent.agent import Agent
-    from app.agent.router import Router
+    from app.agent.router import CHITCHAT_EXAMPLES, Router
+    from app.agent.topics import TopicTracker
     retriever = retriever or build_retriever(cfg)
-    router = Router(retriever._embed_queries, **cfg.get("router", {}))
+    tools = build_tools(cfg)
+
+    router = Router(retriever._embed_queries)
+    router.add("chitchat", CHITCHAT_EXAMPLES, **cfg["router"])
+    for name, tool in tools.items():
+        t = cfg["tools"][name]
+        router.add(name, tool.examples, t["min_score"], t["margin"], tool.keywords)
+
     return Agent(
         llm or build_llm(cfg),
         retriever,
         router,
+        tools,
         top_k=cfg["rag"]["top_k"],
         min_score=cfg["rag"]["min_score"],
         history_turns=cfg["llm"]["history_turns"],
+        topics=TopicTracker(cfg["followup"]["topics"]) if cfg.get("followup") else None,
+        followup_max_score=cfg.get("followup", {}).get("max_score", 0.85),
     )

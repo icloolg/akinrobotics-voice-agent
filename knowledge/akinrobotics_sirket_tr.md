@@ -4,7 +4,7 @@ Kaynak: https://www.akinrobotics.com/hakkimizda ve https://www.akinrobotics.com 
 
 ## Şirket Hakkında
 
-AKINROBOTICS, Konya merkezli yazılım firması AKINSOFT'un robotik alanındaki kuruluşudur ve AKINSOFT'un kendi sermayesiyle kurulmuştur. AKINSOFT'un kurucusu Dr. Özgür Akın'dır. AKINROBOTICS, insansı robotları seri olarak üreten ilk fabrika olarak tanıtılır. Şirketin sloganı "İnsana Değer"dir.
+AKINROBOTICS, Konya merkezli yazılım firması AKINSOFT'un robotik alanındaki kuruluşudur ve AKINSOFT'un kendi sermayesiyle 2015 yılında kurulmuştur; robot fabrikasının temeli 26 Aralık 2015'te atılmıştır. AKINSOFT'un kurucusu Dr. Özgür Akın'dır. AKINROBOTICS, insansı robotları seri olarak üreten ilk fabrika olarak tanıtılır. Şirketin sloganı "İnsana Değer"dir.
 
 ## Fabrika
 

@@ -1,0 +1,11 @@
+.git
+.idea
+.venv
+venv
+__pycache__
+*.pyc
+models
+data
+logs
+logs_server.txt
+tests/voice/recordings*

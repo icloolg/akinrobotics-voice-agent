@@ -2,23 +2,37 @@
 
     uvicorn app.main:app --host 0.0.0.0 --port 8000
 
+Open http://localhost:8000 for the browser client, or run client/voice_client.py.
+
 WebSocket protocol (/ws):
   client -> server : binary = int16 PCM, 16 kHz mono mic audio (continuous)
                      text   = {"type": "reset"}  (forget conversation history)
-  server -> client : text   = JSON events: hello, end_of_speech, transcript,
-                              sentence, empty, done
+  server -> client : text   = JSON events: hello, speech_start, end_of_speech,
+                              transcript, sentence, empty, done
                      binary = int16 PCM answer audio at hello.sample_rate
+
+Barge-in: the server keeps listening while it answers. If the user talks over
+the answer (vad.barge_in_ms of voiced audio), it sends `speech_start`, stops
+the running turn and treats the new speech as the next question. A client
+that cannot cancel its own speaker echo simply does not send mic audio while
+it is playing (client/voice_client.py does this); then nothing is interrupted.
 """
 import asyncio
+import json
 import logging
+import threading
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.audio import pcm16_to_float, resample
 from app.config import load_config
 from app.factory import build_agent, build_stt, build_tts
 from app.logging_setup import setup_logging
+from app.mock_robot_api import router as mock_robot_api
 from app.pipeline import VoicePipeline
 from app.providers.base import SAMPLE_RATE
 from app.providers.vad.silero import Segmenter
@@ -27,6 +41,7 @@ cfg = load_config()
 setup_logging(cfg["logging"]["level"])
 log = logging.getLogger("server")
 state: dict = {}
+WEB_CLIENT = Path(__file__).parent / "static" / "index.html"
 
 
 @asynccontextmanager
@@ -38,53 +53,152 @@ async def lifespan(_app: FastAPI):
     sample = resample(tts.synthesize("Merhaba, nasılsın?", "tr").astype("float32") / 32768,
                       tts.sample_rate, SAMPLE_RATE)
     stt.transcribe(sample)
-    state["pipeline"] = VoicePipeline(stt, agent, tts)
+    state.update(stt=stt, tts=tts, agent=agent,
+                 # One turn at a time on the GPU, also with several clients connected.
+                 busy=asyncio.Lock())
     log.info("Ready.")
     yield
 
 
 app = FastAPI(title="AKINROBOTICS Voice Agent", lifespan=lifespan)
+app.include_router(mock_robot_api)  # demo data source for the robot_status tool
+app.mount("/static", StaticFiles(directory=WEB_CLIENT.parent), name="static")  # robot images
+
+
+@app.get("/")
+def web_client():
+    return FileResponse(WEB_CLIENT)
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok" if "pipeline" in state else "loading"}
+    return {"status": "ok" if "agent" in state else "loading"}
+
+
+class Session:
+    """One connected client: its conversation, its running answer, its VAD."""
+
+    def __init__(self, ws: WebSocket):
+        vad = dict(cfg.get("vad", {}))
+        self.barge_in = vad.pop("barge_in", True)
+        self.barge_in_ms = vad.pop("barge_in_ms", 250)
+        self.segmenter = Segmenter(**vad)
+        self.ws = ws
+        # Own conversation history per client; the models are shared.
+        self.pipeline = VoicePipeline(state["stt"], state["agent"].fork(), state["tts"],
+                                      endpoint_ms=vad.get("min_silence_ms", 500))
+        self.task: asyncio.Task | None = None
+        self.stop_flag = threading.Event()
+        self.playback_end = 0.0   # loop time when the audio sent so far finishes playing
+        self.announced = False    # speech_start already sent for the current utterance
+
+    @property
+    def answering(self) -> bool:
+        return self.task is not None and not self.task.done()
+
+    @property
+    def speaking(self) -> bool:
+        """The client is (probably) still playing the answer."""
+        return self.answering or asyncio.get_running_loop().time() < self.playback_end
+
+    async def on_audio(self, pcm: bytes) -> None:
+        if self.answering and not self.barge_in:
+            return  # half-duplex: ignore the mic while answering
+        was_speaking = self.speaking
+        utterances = self.segmenter.push(pcm16_to_float(pcm))
+
+        if (self.segmenter.in_speech and not self.announced
+                and self.segmenter.voiced_ms >= self.barge_in_ms):
+            await self.interrupt()
+
+        for utterance in utterances:
+            if not self.announced:
+                if was_speaking:
+                    # Too short to be a real interruption: speaker echo, a click, "hm".
+                    log.info("Ignored %.0f ms of sound during the answer", self.segmenter.last_voiced_ms)
+                    continue
+                await self.interrupt()
+            await self.ws.send_json({"type": "end_of_speech"})
+            self.stop_flag = threading.Event()
+            self.task = asyncio.create_task(self.run_turn(utterance, self.stop_flag))
+        if not self.segmenter.in_speech:
+            self.announced = False
+
+    async def interrupt(self) -> None:
+        """The user is speaking: the client stops playing, a running answer is cancelled."""
+        self.announced = True
+        await self.ws.send_json({"type": "speech_start"})
+        self.playback_end = 0.0
+        await self.stop_turn()
+
+    async def stop_turn(self) -> None:
+        if self.task is not None:
+            self.stop_flag.set()
+            await asyncio.gather(self.task, return_exceptions=True)
+
+    async def run_turn(self, utterance, stop: threading.Event) -> None:
+        """Pull events from the blocking pipeline in a worker thread, send each one
+        as soon as it exists (so audio streams out sentence by sentence)."""
+        loop = asyncio.get_running_loop()
+        async with state["busy"]:
+            events = self.pipeline.run_turn(utterance)
+            try:
+                while not stop.is_set():
+                    event = await asyncio.to_thread(next, events, None)
+                    if event is None or stop.is_set():
+                        break
+                    if isinstance(event, bytes):
+                        seconds = len(event) / 2 / self.pipeline.tts.sample_rate
+                        self.playback_end = max(self.playback_end, loop.time()) + seconds
+                        await self.ws.send_bytes(event)
+                    else:
+                        await self.ws.send_json(event)
+            except (WebSocketDisconnect, RuntimeError):  # client went away mid-answer
+                pass
+            except Exception:
+                log.exception("Turn failed")
+                await _send_quietly(self.ws, {"type": "empty"})  # lets the client listen again
+            finally:
+                # Closing the generator also closes the LLM's HTTP stream.
+                await asyncio.to_thread(events.close)
+                if stop.is_set():
+                    log.info("Turn interrupted by the user")
+
+
+async def _send_quietly(ws: WebSocket, event: dict) -> None:
+    try:
+        await ws.send_json(event)
+    except Exception:
+        pass
 
 
 @app.websocket("/ws")
 async def voice(ws: WebSocket):
     await ws.accept()
-    pipeline: VoicePipeline = state["pipeline"]
-    pipeline.agent.reset()
-    segmenter = Segmenter(**cfg.get("vad", {}))
-    await ws.send_json({"type": "hello", "sample_rate": pipeline.tts.sample_rate})
+    session = Session(ws)
+    await ws.send_json({"type": "hello", "sample_rate": session.pipeline.tts.sample_rate,
+                        "barge_in": session.barge_in})
     log.info("Client connected")
-
     try:
         while True:
             msg = await ws.receive()
             if msg["type"] == "websocket.disconnect":
                 break
             if msg.get("text"):
-                if '"reset"' in msg["text"]:
-                    pipeline.agent.reset()
-                continue
-
-            for utterance in segmenter.push(pcm16_to_float(msg["bytes"])):
-                await ws.send_json({"type": "end_of_speech"})
-                await run_turn(ws, pipeline, utterance)
-                segmenter.reset()  # drop anything heard while we were answering
-    except WebSocketDisconnect:
+                if _message_type(msg["text"]) == "reset":
+                    await session.stop_turn()
+                    session.pipeline.agent.reset()
+            elif msg.get("bytes"):
+                await session.on_audio(msg["bytes"])
+    except (WebSocketDisconnect, RuntimeError):
         pass
+    finally:
+        await session.stop_turn()
     log.info("Client disconnected")
 
 
-async def run_turn(ws: WebSocket, pipeline: VoicePipeline, utterance) -> None:
-    """Pull events from the blocking pipeline in a worker thread, send each one
-    as soon as it exists (so audio streams out sentence by sentence)."""
-    events = pipeline.run_turn(utterance)
-    while (event := await asyncio.to_thread(next, events, None)) is not None:
-        if isinstance(event, bytes):
-            await ws.send_bytes(event)
-        else:
-            await ws.send_json(event)
+def _message_type(text: str) -> str:
+    try:
+        return json.loads(text).get("type", "")
+    except (ValueError, AttributeError):
+        return ""

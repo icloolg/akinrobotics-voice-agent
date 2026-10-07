@@ -16,17 +16,26 @@ class OllamaLLM(LLMProvider):
     in message.content and "done": true on the last line.
     """
 
-    def __init__(self, model: str, base_url: str, temperature: float = 0.2):
+    def __init__(self, model: str, base_url: str, temperature: float = 0.2,
+                 max_tokens: int | None = None, num_ctx: int | None = None):
         self.model = model
         self.url = base_url.rstrip("/") + "/api/chat"
-        self.temperature = temperature
+        self.options = {"temperature": temperature}
+        if max_tokens:
+            # Upper limit for one answer. Answers are 1-3 spoken sentences; the
+            # limit only stops a model that starts to ramble or repeat itself.
+            self.options["num_predict"] = max_tokens
+        if num_ctx:
+            # Context window. Ollama's default is larger than our prompts need
+            # (system + 2 chunks + 1 past turn is ~800 tokens) and costs VRAM.
+            self.options["num_ctx"] = num_ctx
 
     def stream(self, messages: list[dict]) -> Iterator[str]:
         payload = {
             "model": self.model,
             "messages": messages,
             "stream": True,
-            "options": {"temperature": self.temperature},
+            "options": self.options,
             "keep_alive": "30m",  # keep the model in GPU memory between turns
         }
         with requests.post(self.url, json=payload, stream=True, timeout=120) as r:

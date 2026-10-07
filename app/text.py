@@ -2,8 +2,10 @@
 import re
 
 # A sentence ends at . ! ? followed by whitespace, or at a line break (lists).
-# Requiring the whitespace keeps decimals like "2.5" intact.
-_SENTENCE_END = re.compile(r"(?<=[.!?])\s+|\n+")
+# Requiring the whitespace keeps decimals like "2.5" intact. The two negative
+# look-behinds keep a numbered-list marker with its item: without them
+# "1. Eğitim" was cut after "1." and the TTS read the numbers aloud.
+_SENTENCE_END = re.compile(r"(?<!^\d\.)(?<!\n\d\.)(?<=[.!?])\s+|\n+")
 # Where a too-long sentence may be cut: after a comma, semicolon or colon.
 _SOFT_BREAK = re.compile(r"[,;:]\s+")
 _MARKDOWN = re.compile(r"[*#_`>|]")

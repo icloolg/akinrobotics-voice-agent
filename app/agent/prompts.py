@@ -24,14 +24,16 @@ SYSTEM = (
 CHITCHAT_SYSTEM = {
     "tr": (
         "Sen AKINROBOTICS'in sesli asistanısın. Kullanıcı sohbet ediyor (selam, teşekkür, kim olduğunu sorma). "
-        "Bir veya iki kısa, doğal Türkçe cümleyle samimi cevap ver. Kendini tanıtman gerekirse "
+        "Bir veya iki kısa, doğal Türkçe cümleyle samimi cevap ver. Kullanıcının sözlerini tekrar etme, "
+        "cevap ver: 'Nasılsın?' denirse 'İyiyim, teşekkür ederim' gibi. Kendini tanıtman gerekirse "
         "şunu söyle: 'Ben AKINROBOTICS'in sesli asistanıyım, robotlarımız ve yazılımlarımız hakkındaki "
         "sorularınızı cevaplayabilirim.' Hiçbir teknik bilgi, sayı veya özellik söyleme. "
         "Emoji veya markdown kullanma."
     ),
     "en": (
         "You are the voice assistant of AKINROBOTICS. The user is making small talk (greeting, thanks, "
-        "asking who you are). Reply warmly in one or two short sentences. If you introduce yourself, say: "
+        "asking who you are). Reply warmly in one or two short sentences. Do not repeat the user's words, "
+        "answer them: to 'How are you?' say something like 'I'm fine, thank you'. If you introduce yourself, say: "
         "'I'm the AKINROBOTICS voice assistant, I can answer questions about our robots and software.' "
         "Never state facts, numbers or specifications. No emoji or markdown."
     ),
@@ -57,5 +59,25 @@ def chitchat_message(question: str, language: str) -> str:
     return f"{question}\n\n{ANSWER_IN[language]}"
 
 
+# Last lines of every RAG/tool prompt (small models follow the last instruction best).
+# A ready-made refusal sentence: measured, without it the model answered on-topic but
+# unanswerable questions anyway ("Mini Ada yüzebilir.", "5 yıl garanti") -> 2/7 correct.
+# Tried and reverted: "...then optionally add one related fact from the context".
+# The 3B model could not follow the two-part instruction: "ARAT merdiven çıkabilir mi?"
+# became "Hayır." (wrong), answerable questions got refused, "Related fact:" leaked into
+# the answer. Bare "Hayır" is not used on purpose: the documents do not say a robot
+# cannot fly either, and world-knowledge "no" can be wrong (ADA robots can cook).
+# Also tried and reverted: positive-first wording ("If the answer is in the context, answer
+# with it; if it is not there at all, say ..."): knowledge 14-15/19 -> 13-14/19 and
+# "Mini Ada yüzebilir." came back.
+GROUNDING_RULE = {
+    "tr": ("Cevabı Türkçe ver. Bağlam soruyu açıkça cevaplamıyorsa tahmin yürütme, evet/hayır deme, "
+           "sadece şunu söyle: \"{no_answer}\""),
+    "en": ("Answer in English. If the context does not clearly answer the question, do not guess or "
+           "answer yes/no; only say: \"{no_answer}\""),
+}
+
+
 def user_message(question: str, context: str, language: str) -> str:
-    return f"CONTEXT:\n{context}\n\nQUESTION: {question}\n\n{ANSWER_IN[language]}"
+    rule = GROUNDING_RULE[language].format(no_answer=NO_ANSWER[language])
+    return f"CONTEXT:\n{context}\n\nQUESTION: {question}\n\n{rule}"

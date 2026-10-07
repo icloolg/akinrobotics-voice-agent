@@ -1,6 +1,7 @@
 import glob
 import logging
 import os
+import re
 import sys
 import time
 
@@ -56,6 +57,9 @@ class FasterWhisperSTT(STTProvider):
 
         # segments is a lazy generator: the actual decoding happens here.
         text = " ".join(s.text.strip() for s in segments).strip()
+        if self._is_prompt_echo(text):
+            log.info("Dropped prompt echo: %r", text)
+            text = ""
 
         return Transcript(
             text=text,
@@ -63,6 +67,19 @@ class FasterWhisperSTT(STTProvider):
             audio_seconds=len(audio) / SAMPLE_RATE,
             processing_seconds=time.perf_counter() - start,
         )
+
+    def _is_prompt_echo(self, text: str) -> bool:
+        """Whisper, given unclear audio (noise, echo, a breath), sometimes writes out
+        its hotwords prompt instead of speech. Seen in a live test: the user said
+        nothing and the transcript was "AKINCI-5, ARAT, ARAT, AKINCI-5, AMR ve AROS
+        hakkında sorular." If every word of a 3+ word transcript is a
+        hotword-prompt word, it is not a real question. (A short reply like
+        "ARAT" or "Mini Ada" is kept: it can be a real follow-up answer.)"""
+        if not self.hotwords or not text:
+            return False
+        words = lambda s: re.sub(r"[^\w\s-]", " ", s.lower()).split()
+        said = words(text)
+        return len(said) >= 3 and set(said) <= set(words(self.hotwords))
 
     def _choose_language(self, probs: dict[str, float]) -> str:
         """Default language unless another allowed language is clearly more likely.

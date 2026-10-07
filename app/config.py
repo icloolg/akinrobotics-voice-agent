@@ -15,5 +15,11 @@ def load_config(path: str | Path = ROOT / "config.yaml") -> dict:
         cfg["llm"]["base_url"] = url
     if model := os.getenv("LLM_MODEL"):
         cfg["llm"]["model"] = model
+    if device := os.getenv("STT_DEVICE"):          # "cpu" on machines without an NVIDIA GPU
+        cfg["stt"]["device"] = device
+    if compute_type := os.getenv("STT_COMPUTE_TYPE"):
+        cfg["stt"]["compute_type"] = compute_type
+    if url := os.getenv("ROBOT_API_URL"):
+        cfg["tools"]["robot_status"]["url"] = url
 
     return cfg

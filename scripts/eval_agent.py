@@ -5,10 +5,18 @@
 
 Questions: tests/agent_questions.csv
   bilgi       -> answer must contain the expected value(s)
-                 ("a|b" = any of them, "a&b" = all of them)
+                 ("a|b" = any of them, "a&b" = all of them, "a&!b" = a but not b)
   sohbet      -> must be routed to small talk
-  kapsam_disi -> must NOT state facts: routed to "no answer", or the LLM says it
-                 has no information (e.g. "Ada-7 uçabilir mi?" passes retrieval)
+  kapsam_disi -> off-topic ("Bugün hava nasıl?"): must say it has no information
+  cevapsiz    -> on-topic but NOT in the documents ("Ada-7 uçabilir mi?"): passes
+                 the retrieval threshold, so only the LLM can refuse. Must say it
+                 has no information; any yes/no/number is a hallucination.
+  takip       -> follow-up without the topic ("Ne zaman kurulmuş?" right after
+                 "AKINSOFT nedir?"); checked like bilgi
+  arac:<name> -> must be routed to that tool and the answer must contain the expected value
+
+If the mock robot API (served by app/main.py) is not running, it is started
+in a background thread so the robot_status tool can be tested on its own.
 
 Latency is measured like the voice pipeline sees it: time until the first
 complete sentence is ready for TTS ("first sentence"), and total time.
@@ -19,6 +27,8 @@ import csv
 import random
 import time
 
+import requests
+
 from app.agent import prompts
 from app.agent.agent import AgentResult
 from app.config import load_config
@@ -26,34 +36,70 @@ from app.factory import build_agent
 from app.logging_setup import setup_logging
 from app.text import SentenceSplitter
 
-NO_INFO_WORDS = ("bilgi", "bulamadım", "bilmiyorum", "don't have", "couldn't find", "no information", "not ")
+# An answer counts as "no information" only if it says so. "Hayır, yüzemez" is
+# also wrong for an unanswerable question: the documents do not say that either.
+NO_INFO_WORDS = ("bilgi", "bulamadım", "bilmiyorum", "belirtilmem", "yer almıyor",
+                 "information", "don't know", "not mentioned", "not specified", "couldn't find")
 
 
 def normalize(text: str) -> str:
-    return text.replace("İ", "i").replace("I", "ı").lower()
+    # Fold Turkish dotless/dotted i so "AKINCI-5" == "Akinci-5" when comparing.
+    return text.lower().replace("ı", "i").replace("i̇", "i")
 
 
 def is_correct(category: str, expected: str, result: AgentResult) -> bool:
     answer = normalize(result.answer)
+    if category.startswith("arac:"):
+        if result.tool != category.split(":", 1)[1]:
+            return False
+        category = "bilgi"
+    if category == "takip":
+        category = "bilgi"
     if category == "sohbet":
         return result.route == "chitchat"
-    if category == "kapsam_disi":
-        return result.route == "no_answer" or any(w in answer for w in NO_INFO_WORDS)
-    if "&" in expected:
-        return all(normalize(e) in answer for e in expected.split("&"))
+    if category in ("kapsam_disi", "cevapsiz"):
+        refused = result.route == "no_answer" or any(w in answer for w in NO_INFO_WORDS)
+        # "!x&!y": words that must NOT appear (an invented fact after the refusal)
+        invented = any(normalize(e[1:]) in answer for e in expected.split("&") if e.startswith("!"))
+        return refused and not invented
+    if "&" in expected:  # "a&b&!c": a and b must appear, c must not
+        parts = expected.split("&")
+        return (all(normalize(e) in answer for e in parts if not e.startswith("!"))
+                and not any(normalize(e[1:]) in answer for e in parts if e.startswith("!")))
     return any(normalize(e) in answer for e in expected.split("|"))
+
+
+def ensure_mock_api(url: str) -> None:
+    try:
+        requests.get(url, timeout=1)
+        return
+    except requests.RequestException:
+        pass
+    import threading
+    import uvicorn
+    from fastapi import FastAPI
+    from app.mock_robot_api import router
+    app = FastAPI()
+    app.include_router(router)
+    port = int(url.split(":")[2].split("/")[0])
+    threading.Thread(target=uvicorn.run, args=(app,), kwargs={"port": port, "log_level": "warning"},
+                     daemon=True).start()
+    time.sleep(1.5)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--top-k", type=int)
     parser.add_argument("--history", type=int)
+    parser.add_argument("--temperature", type=float)
     parser.add_argument("--quiet", action="store_true", help="only print the summary")
     args = parser.parse_args()
 
     cfg = load_config()
     if args.top_k is not None:
         cfg["rag"]["top_k"] = args.top_k
+    if args.temperature is not None:
+        cfg["llm"]["temperature"] = args.temperature
     if args.history is not None:
         cfg["llm"]["history_turns"] = args.history
     setup_logging("WARNING")
@@ -64,6 +110,8 @@ def main() -> None:
     tag = f"[run {random.randint(0, 10**9)}]\n"
     prompts.SYSTEM = tag + prompts.SYSTEM
     prompts.CHITCHAT_SYSTEM = {k: tag + v for k, v in prompts.CHITCHAT_SYSTEM.items()}
+    if "robot_status" in cfg.get("tools", {}).get("enabled", []):
+        ensure_mock_api(cfg["tools"]["robot_status"]["url"])
     agent = build_agent(cfg)
     agent.llm.warmup()
 
@@ -84,11 +132,12 @@ def main() -> None:
         rows.append((q, result, ok, first_sentence, total))
         if not args.quiet:
             print(f"{'✓' if ok else '✗'} {first_sentence * 1000:5.0f} ms {total * 1000:5.0f} ms "
-                  f"[{result.route:9s}] {q['question']}\n      → {result.answer[:110]}")
+                  f"[{(result.tool or result.route):12s}] {q['question']}\n      → {result.answer[:110]}")
 
-    print(f"\nAyarlar: top_k={cfg['rag']['top_k']} history={cfg['llm']['history_turns']}")
-    for cat in ("bilgi", "sohbet", "kapsam_disi"):
-        sel = [r for r in rows if r[0]["category"] == cat]
+    print(f"\nAyarlar: top_k={cfg['rag']['top_k']} history={cfg['llm']['history_turns']} "
+          f"temperature={cfg['llm']['temperature']}")
+    for cat in ("bilgi", "takip", "sohbet", "kapsam_disi", "cevapsiz", "arac"):
+        sel = [r for r in rows if r[0]["category"].split(":")[0] == cat]
         print(f"  {cat:12s} doğru {sum(r[2] for r in sel)}/{len(sel)}")
     rag = [r for r in rows if r[1].route == "rag"]
     avg = lambda xs: sum(xs) / len(xs) * 1000 if xs else 0

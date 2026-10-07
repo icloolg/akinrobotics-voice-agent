@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AKINROBOTICS Sesli Ajan</title>
+<link rel="icon" href="data:,">
+<!--
+  Browser client for the voice agent. No build step, no libraries.
+    mic (AudioWorklet, resampled to 16 kHz int16) -> WebSocket /ws
+    WebSocket -> answer audio (int16 PCM) -> Web Audio, played back to back
+  The browser's echo cancellation removes the agent's own voice from the mic,
+  which is what makes barge-in (talking over the answer) possible.
+  Protocol: see app/main.py.
+-->
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #16202b; --muted: #64707d; --line: #dfe3e8;
+    --accent: #0b6bcb; --accent-ink: #ffffff; --user: #e8f1fb; --ok: #1f9d57; --warn: #c9372c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10151b; --panel: #18202a; --ink: #e6ebf0; --muted: #8f9ba8; --line: #2a3542;
+      --accent: #4ea1f3; --accent-ink: #0b1622; --user: #1d2f44; --ok: #46c683; --warn: #f0776c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .app { width: 100%; max-width: 760px; height: 100%; display: flex; flex-direction: column; padding: 0 16px; }
+  header { padding: 20px 0 12px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 1.15rem; margin: 0; letter-spacing: .01em; }
+  .status { color: var(--muted); font-size: .9rem; display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); flex: none; }
+  .dot.listening { background: var(--ok); }
+  .dot.hearing { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 30%, transparent); }
+  .dot.thinking { background: var(--accent); animation: pulse 1s infinite; }
+  .dot.speaking { background: var(--accent); }
+  .dot.error { background: var(--warn); }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  #log {
+    flex: 1; overflow-y: auto; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .hint { color: var(--muted); margin: auto; text-align: center; max-width: 34em; }
+  .hint b { color: var(--ink); font-weight: 600; }
+  .msg { max-width: 85%; padding: 9px 13px; border-radius: 12px; overflow-wrap: anywhere; }
+  .msg.user { align-self: flex-end; background: var(--user); }
+  .msg.agent { align-self: flex-start; border: 1px solid var(--line); }
+  .msg.cut { opacity: .6; }
+  .msg .lang { font-size: .72rem; color: var(--muted); text-transform: uppercase; margin-right: 6px; }
+  .meta { align-self: flex-start; color: var(--muted); font-size: .78rem; margin: -4px 0 4px 4px;
+          font-variant-numeric: tabular-nums; }
+  .meta b { color: var(--ink); font-weight: 600; }
+
+  .controls { display: flex; align-items: center; gap: 14px; padding: 14px 0 18px; flex-wrap: wrap; }
+  button {
+    font: inherit; border-radius: 10px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink); padding: 10px 16px; cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; min-width: 11em; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  label { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: .9rem; cursor: pointer; }
+  .meter { flex: 1; min-width: 90px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .08s linear; }
+
+  /* Robot strip: every robot with a picture, scrolling slowly; the ones in the
+     last answer light up. The list is in the track twice, so moving the track
+     by half its width loops without a jump. Hover pauses it. */
+  .robots { overflow: hidden; padding: 0 0 12px;
+            mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+  .track { display: flex; gap: 6px; width: max-content; animation: slide 28s linear infinite; }
+  .robots:hover .track { animation-play-state: paused; }
+  @keyframes slide { to { transform: translateX(calc(-50% - 3px)); } }
+  @media (prefers-reduced-motion: reduce) { .track { animation: none; } .robots { overflow-x: auto; } }
+  .robot { flex: none; width: 78px; text-align: center; font-size: .7rem; color: var(--muted);
+           border: 1px solid transparent; border-radius: 10px; padding: 4px 2px; transition: all .25s; }
+  .robot img { height: 64px; width: 100%; object-fit: contain; display: block; margin: 0 auto 2px; }
+  .robot.active { border-color: var(--accent); color: var(--ink); background: var(--panel);
+                  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent); }
+  /* Pictures of the robots an answer talks about, under that answer. */
+  .pics { align-self: flex-start; display: flex; gap: 10px; flex-wrap: wrap; margin: -2px 0 2px 4px; }
+  .pics figure { margin: 0; text-align: center; font-size: .72rem; color: var(--muted); }
+  .pics img { height: 110px; display: block; margin: 0 auto 2px; }
+  .pics.many img { height: 64px; }
+  .credit { color: var(--muted); font-size: .7rem; text-align: center; padding: 0 0 10px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>AKINROBOTICS Sesli Ajan</h1>
+    <div class="status" aria-live="polite"><span class="dot" id="dot"></span><span id="status">Bağlı değil</span></div>
+  </header>
+
+  <div class="robots"><div class="track" id="robots"></div></div>
+
+  <div id="log">
+    <p class="hint" id="hint">
+      <b>Başlat</b>'a basın ve mikrofona izin verin. Türkçe veya İngilizce konuşun; sustuğunuzda ajan cevap verir.<br>
+      Örnek: "Ada-7 kaç kilogram?" · "Which robot is the fastest?" · "Hangi robot arızalı?"
+    </p>
+  </div>
+
+  <div class="controls">
+    <button class="primary" id="toggle">Başlat</button>
+    <button id="reset" title="Konuşma geçmişini sil">Sıfırla</button>
+    <label title="Açıkken ajan konuşurken araya girebilirsiniz. Hoparlörden yankı olup ajan kendi kendini kesiyorsa kapatın veya kulaklık kullanın.">
+      <input type="checkbox" id="bargein" checked> Söz kesme
+    </label>
+    <div class="meter" title="Mikrofon seviyesi"><i id="level"></i></div>
+  </div>
+  <div class="credit">Robot görselleri: akinrobotics.com</div>
+</div>
+
+<script>
+const MIC_RATE = 16000, BLOCK = 512;   // what the server expects: 32 ms blocks of 16 kHz int16
+
+// Runs on the audio thread: averages the mic signal down to 16 kHz and posts int16 blocks.
+const WORKLET = `
+class Mic extends AudioWorkletProcessor {
+  constructor() { super(); this.acc = 0; this.n = 0; this.pos = 0; this.out = new Int16Array(${BLOCK}); this.len = 0; }
+  process(inputs) {
+    const ch = inputs[0][0];
+    if (!ch) return true;
+    for (let i = 0; i < ch.length; i++) {
+      this.acc += ch[i]; this.n++; this.pos += ${MIC_RATE};
+      if (this.pos >= sampleRate) {
+        this.pos -= sampleRate;
+        const s = Math.max(-1, Math.min(1, this.acc / this.n));
+        this.acc = 0; this.n = 0;
+        this.out[this.len++] = s * 32767;
+        if (this.len === ${BLOCK}) { this.port.postMessage(this.out.slice().buffer); this.len = 0; }
+      }
+    }
+    return true;
+  }
+}
+registerProcessor('mic', Mic);`;
+
+const $ = id => document.getElementById(id);
+const log = $('log');
+let ws, ctx, micStream, micNode;
+let outRate = 22050;
+let playing = new Set(), nextTime = 0;   // scheduled answer audio
+let answering = false;                   // between end_of_speech and done/empty
+let agentMsg = null;
+
+// ---------- robot pictures ----------
+// Name patterns (Turkish and English answers) -> picture in /static/robots.
+// (UV-C robot: no picture available on the website.)
+const ROBOTS = [
+  { name: 'Mini Ada',              file: 'mini-ada',              re: /mini\s*ada/i },
+  { name: 'Ada-7',                 file: 'ada-7',                 re: /ada[\s-]?7/i },
+  { name: 'Servis Robotu V3',      file: 'servis-robotu-v3',      re: /servis robotu v3|service robot v3/i },
+  { name: 'Fabrika Servis Robotu', file: 'fabrika-servis-robotu', re: /fabrika servis|factory service/i },
+  { name: 'AMR',                   file: 'amr-robotu',            re: /\bAMR\b/ },
+  { name: 'ARAT',                  file: 'arat',                  re: /\bARAT\b/i },
+  { name: 'AKINCI-5',              file: 'akinci-5',              re: /ak[ıi]nc[ıi][\s-]?5/i },
+];
+const robotSrc = r => '/static/robots/' + r.file + '.webp';
+
+function buildStrip() {
+  for (const copy of [false, true]) {          // second copy: only for the seamless loop
+    for (const r of ROBOTS) {
+      const el = document.createElement('div');
+      el.className = 'robot'; el.dataset.file = r.file;
+      if (copy) el.setAttribute('aria-hidden', 'true');
+      const img = new Image(); img.src = robotSrc(r); img.alt = copy ? '' : r.name;
+      el.append(img, r.name);
+      $('robots').append(el);
+    }
+  }
+}
+
+// After an answer: picture(s) of the robots it mentions, and highlight them in the strip.
+function showRobots(text) {
+  const found = ROBOTS.filter(r => r.re.test(text));
+  for (const el of document.querySelectorAll('.robot'))
+    el.classList.toggle('active', found.some(r => r.file === el.dataset.file));
+  if (!found.length) return;
+  const box = add('pics' + (found.length > 2 ? ' many' : ''), '');
+  for (const r of found) {
+    const fig = document.createElement('figure');
+    const img = new Image(); img.src = robotSrc(r); img.alt = r.name;
+    img.onload = () => { log.scrollTop = log.scrollHeight; };
+    fig.append(img, r.name);
+    box.append(fig);
+  }
+}
+
+function setStatus(kind, text) { $('dot').className = 'dot ' + kind; $('status').textContent = text; }
+
+function add(cls, text) {
+  $('hint')?.remove();
+  const el = document.createElement('div');
+  el.className = cls; el.textContent = text;
+  log.append(el); log.scrollTop = log.scrollHeight;
+  return el;
+}
+
+// ---------- playback ----------
+function play(buffer) {
+  const pcm = new Int16Array(buffer);
+  if (!pcm.length) return;
+  const audio = ctx.createBuffer(1, pcm.length, outRate);
+  const data = audio.getChannelData(0);
+  for (let i = 0; i < pcm.length; i++) data[i] = pcm[i] / 32768;
+  const src = ctx.createBufferSource();
+  src.buffer = audio; src.connect(ctx.destination);
+  nextTime = Math.max(nextTime, ctx.currentTime + 0.03);
+  src.start(nextTime); nextTime += audio.duration;
+  playing.add(src);
+  src.onended = () => { playing.delete(src); if (!playing.size && !answering && ws) setStatus('listening', 'Dinliyorum'); };
+  setStatus('speaking', 'Konuşuyor');
+}
+function stopPlayback() {
+  const was = playing.size > 0;
+  for (const src of playing) { src.onended = null; try { src.stop(); } catch {} }
+  playing.clear(); nextTime = 0;
+  return was;
+}
+const isPlaying = () => playing.size > 0;
+
+// ---------- server events ----------
+function onEvent(e) {
+  switch (e.type) {
+    case 'hello':
+      outRate = e.sample_rate;
+      if (e.barge_in === false) { $('bargein').checked = false; $('bargein').disabled = true; }
+      setStatus('listening', 'Dinliyorum');
+      break;
+    case 'speech_start':                 // the server heard the user: be quiet
+      if ((stopPlayback() || answering) && agentMsg) agentMsg.classList.add('cut');
+      answering = false; agentMsg = null;
+      setStatus('hearing', 'Sizi duyuyorum');
+      break;
+    case 'end_of_speech':
+      answering = true; agentMsg = null;
+      setStatus('thinking', 'Düşünüyor');
+      break;
+    case 'transcript': {
+      const el = add('msg user', e.text);
+      const lang = document.createElement('span');
+      lang.className = 'lang'; lang.textContent = e.language; el.prepend(lang);
+      break;
+    }
+    case 'sentence':
+      if (!agentMsg) agentMsg = add('msg agent', '');
+      agentMsg.textContent += (agentMsg.textContent ? ' ' : '') + e.text;
+      log.scrollTop = log.scrollHeight;
+      break;
+    case 'done': {
+      answering = false;
+      if (agentMsg) showRobots(agentMsg.textContent);
+      const m = e.metrics, ms = m.ms, sec = v => (v / 1000).toFixed(1) + ' sn';
+      const el = add('meta', '');
+      const total = document.createElement('b');
+      total.textContent = 'Yanıt gecikmesi ' + sec(m.response_ms ?? ms.first_audio);
+      el.append(total, ` · STT ${sec(ms.stt_done)} · LLM ilk token ${sec(ms.llm_first_token - ms.stt_done)}`
+        + ` · ilk cümle+TTS ${sec(ms.first_audio - ms.llm_first_token)}`
+        + ` · kaynak: ${m.sources.length ? m.sources.join(', ') : (m.route === 'chitchat' ? 'sohbet' : 'yok')}`);
+      if (!isPlaying()) setStatus('listening', 'Dinliyorum');
+      break;
+    }
+    case 'empty':
+      answering = false;
+      if (!isPlaying()) setStatus('listening', 'Dinliyorum');
+      break;
+  }
+}
+
+// ---------- start / stop ----------
+async function start() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setStatus('error', 'Mikrofon için sayfayı http://localhost veya HTTPS üzerinden açın');
+    return;
+  }
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+  } catch (err) {
+    setStatus('error', 'Mikrofona erişilemedi: ' + err.message);
+    return;
+  }
+  ctx = new AudioContext();
+  await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' })));
+  micNode = new AudioWorkletNode(ctx, 'mic');
+  ctx.createMediaStreamSource(micStream).connect(micNode);
+
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws.binaryType = 'arraybuffer';
+  setStatus('thinking', 'Bağlanıyor');
+  ws.onmessage = ev => typeof ev.data === 'string' ? onEvent(JSON.parse(ev.data)) : play(ev.data);
+  ws.onclose = () => { if (ws) { stop(); setStatus('error', 'Bağlantı kesildi'); } };
+
+  micNode.port.onmessage = ev => {
+    const pcm = new Int16Array(ev.data);
+    let sum = 0;
+    for (let i = 0; i < pcm.length; i++) sum += pcm[i] * pcm[i];
+    $('level').style.width = Math.min(100, Math.sqrt(sum / pcm.length) / 32768 * 400) + '%';
+    // Without barge-in the mic is not sent while the agent thinks or talks (half-duplex).
+    const hold = !$('bargein').checked && (answering || isPlaying());
+    if (ws?.readyState === WebSocket.OPEN && !hold) ws.send(ev.data);
+  };
+  $('toggle').textContent = 'Durdur';
+}
+
+function stop() {
+  const socket = ws; ws = null;
+  socket?.close();
+  stopPlayback();
+  micStream?.getTracks().forEach(t => t.stop());
+  ctx?.close();
+  ctx = micStream = micNode = null; answering = false; agentMsg = null;
+  $('level').style.width = '0';
+  $('toggle').textContent = 'Başlat';
+  setStatus('', 'Bağlı değil');
+}
+
+buildStrip();
+$('toggle').onclick = () => ws ? stop() : start();
+$('reset').onclick = () => {
+  if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'reset' }));
+  stopPlayback(); answering = false; agentMsg = null;
+  log.replaceChildren();
+};
+</script>
+</body>
+</html>

@@ -21,4 +21,34 @@ en,sohbet,Who are you?,
 tr,kapsam_disi,Bugün hava nasıl?,
 tr,kapsam_disi,Türkiye'nin başkenti neresi?,
 en,kapsam_disi,Who won the World Cup?,
-tr,kapsam_disi,Ada-7 uçabilir mi?,
+tr,cevapsiz,Ada-7 uçabilir mi?,!uçabilir&!uçar
+tr,arac:datetime,Saat kaç?,2026|saat|:
+en,arac:datetime,What is the date today?,2026
+tr,arac:robot_status,Hangi robot arızalı?,ARAT
+tr,arac:robot_status,Robotlar şu anda ne durumda?,Ada-7
+en,arac:robot_status,Which robot is charging right now?,Ada-7
+tr,cevapsiz,ARAT'ın fiyatı ne kadar?,!tl&!lira&!dolar
+tr,cevapsiz,Mini Ada yüzebilir mi?,!yüzebilir&!yüzer
+tr,cevapsiz,AKINCI-5 hangi renkte üretiliyor?,!beyaz&!siyah&!gri&!mavi&!kırmızı
+en,cevapsiz,How much does Ada-7 cost?,!$&!dollar&!lira
+en,cevapsiz,Can Mini Ada cook food?,!can cook&!cannot cook&!yes
+tr,cevapsiz,Servis Robotu V3 kaç yıl garantili?,!yıl garanti
+tr,arac:robot_specs,En hafif robotunuz hangisi?,ARAT
+tr,arac:robot_specs,En hızlı robot hangisi?,AKINCI-5
+tr,arac:robot_specs,Hangi robotlar 8 saatten fazla çalışır?,AMR&!Fabrika&!Ada
+en,arac:robot_specs,Which robot has the longest battery life?,AMR
+tr,arac:robot_specs,En kısa sürede şarj olan robot hangisi?,AKINCI-5
+en,arac:robot_specs,Which robot is the heaviest?,AMR
+tr,cevapsiz,En akıllı robot hangisi?,
+tr,sohbet,Nasılsın?,
+tr,bilgi,Hangi yazılım servisleriniz var?,AROS
+tr,bilgi,AKINSOFT nedir?,yazılım
+en,bilgi,What software does AKINROBOTICS offer?,AROS
+tr,bilgi,AKINSOFT nedir?,yazılım
+tr,takip,Ne zaman kurulmuş?,1995
+tr,bilgi,Ada-7 kaç kilogram?,65
+tr,takip,Peki kaç saat çalışır?,8
+en,bilgi,What is ARAT?,four|quadruped
+en,takip,How fast is it?,1.8|1,8
+tr,bilgi,Mini Ada'nın boyutları nedir?,123
+tr,takip,Şarj süresi ne kadar?,2,5|2.5

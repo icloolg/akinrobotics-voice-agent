@@ -1,0 +1,9 @@
+name,weight_kg,max_speed_ms,battery_hours,charge_minutes
+Ada-7,65,0.6,8,180
+Mini Ada,45,0.6,8,150
+Servis Robotu V3,43,1.0,8,180
+Fabrika Servis Robotu,60,0.8,8,180
+UV-C Sterilizasyon Robotu,55.5,0.5,2.5,180
+AMR,230,0.7,30,300
+ARAT,27,1.8,1.5,45
+AKINCI-5,42,2.5,1.5,30
