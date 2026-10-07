@@ -25,6 +25,14 @@ README'ye girecek bulgular ve açık işler.
 8. **TTS (Piper):** RTF ~0.055 (3 sn sesi ~160 ms'de üretiyor), CPU'da. Türkçe ses: tr_TR-dfki-medium
    (planlanan fahrettin sesi Piper listesinde yok).
 
+9. **Uçtan uca ilk test:** VAD → STT → RAG+LLM → cümle cümle TTS çalışıyor. Kullanıcı sustuktan
+   ilk sese ~4.5 sn: STT ~1.1 sn, LLM prompt işleme ~3 sn, TTS ~0.4 sn.
+10. **Darboğaz LLM prompt işleme:** GTX 1650 (tensor core yok) ~200 token/sn. Denenen ve etkisiz:
+    Flash Attention kapatma, num_batch 64/128, Whisper'ı GPU'dan çıkarma. Donanım sınırı.
+11. **D: ortak sistem promptu + dil talimatı sonda:** 6 karışık TR/EN soruda ortalama prompt
+    işleme 2246 → 1891 ms. Mini Ada İngilizce sorusu düzeldi (2.5 sa ❌ → 8 sa ✅). Süre bağlamdaki
+    token sayısıyla doğrusal (~5 ms/token): 3 parçalı sorular ~3.5 sn, 1-2 parçalı ~1 sn.
+
 ## Açık işler
 
 - [ ] **Dil karışması:** İngilizce soruya bir kez Türkçe ve yanlış cevap verdi (şarj süresi ile

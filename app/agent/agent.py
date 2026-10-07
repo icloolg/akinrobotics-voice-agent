@@ -8,6 +8,7 @@ Flow:
      and stream the LLM's answer.
 """
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Iterator
 
@@ -24,6 +25,7 @@ class AgentResult:
     chunks: list[Chunk] = field(default_factory=list)
     grounded: bool = False
     answer: str = ""
+    retrieval_ms: float = 0.0
 
 
 class Agent:
@@ -37,7 +39,9 @@ class Agent:
         self.history: list[dict] = []
 
     def answer(self, question: str, language: str, result: AgentResult) -> Iterator[str]:
+        start = time.perf_counter()
         result.chunks = self.retriever.search(question, self.top_k)
+        result.retrieval_ms = round((time.perf_counter() - start) * 1000, 1)
         best = result.chunks[0].score if result.chunks else 0.0
         log.info("Retrieval best=%.3f sources=%s", best, [c.source for c in result.chunks])
 
@@ -50,7 +54,7 @@ class Agent:
         result.grounded = True
         relevant = [c for c in result.chunks if c.score >= self.min_score]
         messages = [
-            {"role": "system", "content": prompts.SYSTEM[language]},
+            {"role": "system", "content": prompts.SYSTEM},
             *self.history,
             {"role": "user", "content": prompts.user_message(
                 question, prompts.build_context(relevant), language)},

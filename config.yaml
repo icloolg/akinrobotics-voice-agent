@@ -4,6 +4,11 @@ server:
   host: 0.0.0.0
   port: 8000
 
+vad:
+  threshold: 0.5          # Silero speech probability needed to count as speech
+  min_silence_ms: 500     # silence that ends an utterance; directly adds to perceived latency
+  max_seconds: 15         # cut very long utterances
+
 stt:
   provider: faster_whisper
   model: small            # tiny | base | small | medium
@@ -35,6 +40,7 @@ tts:
   voices:
     tr: tr_TR-dfki-medium
     en: en_US-lessac-medium
+  length_scale: 0.85      # < 1 = faster speech (1.0 = voice default, felt too slow)
 
 logging:
   level: INFO

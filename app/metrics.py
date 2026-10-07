@@ -9,8 +9,11 @@ Usage:
 import json
 import logging
 import time
+from pathlib import Path
 
 log = logging.getLogger("metrics")
+
+TURNS_FILE = Path("logs/turns.jsonl")  # one JSON line per turn, read by scripts/benchmark.py
 
 
 class TurnTimer:
@@ -29,8 +32,11 @@ class TurnTimer:
         return {"turn": self.turn_id, "ms": self.marks, **self.extra}
 
     def log(self) -> None:
-        # One JSON line per turn -> scripts/benchmark.py can parse the log file.
-        log.info("TURN %s", json.dumps(self.summary(), ensure_ascii=False))
+        line = json.dumps(self.summary(), ensure_ascii=False)
+        log.info("TURN %s", line)
+        TURNS_FILE.parent.mkdir(exist_ok=True)
+        with TURNS_FILE.open("a", encoding="utf-8") as f:
+            f.write(line + "\n")
 
 
 def rtf(processing_s: float, audio_s: float) -> float:

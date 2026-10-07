@@ -26,7 +26,7 @@ def build_tts(cfg: dict):
     c = cfg["tts"]
     if c["provider"] == "piper":
         from app.providers.tts.piper import PiperTTS
-        return PiperTTS(c["voices_dir"], c["voices"])
+        return PiperTTS(c["voices_dir"], c["voices"], c.get("length_scale", 1.0))
     raise ValueError(f"Unknown TTS provider: {c['provider']}")
 
 
