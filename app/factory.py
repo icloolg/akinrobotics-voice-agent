@@ -5,12 +5,29 @@ registry below. Imports are lazy so unused libraries are never loaded.
 """
 
 
+def build_stt(cfg: dict):
+    c = cfg["stt"]
+    if c["provider"] == "faster_whisper":
+        from app.providers.stt.faster_whisper import FasterWhisperSTT
+        return FasterWhisperSTT(c["model"], c["device"], c["compute_type"],
+                                c["languages"], c.get("hotwords"))
+    raise ValueError(f"Unknown STT provider: {c['provider']}")
+
+
 def build_llm(cfg: dict):
     c = cfg["llm"]
     if c["provider"] == "ollama":
         from app.providers.llm.ollama import OllamaLLM
         return OllamaLLM(c["model"], c["base_url"], c["temperature"])
     raise ValueError(f"Unknown LLM provider: {c['provider']}")
+
+
+def build_tts(cfg: dict):
+    c = cfg["tts"]
+    if c["provider"] == "piper":
+        from app.providers.tts.piper import PiperTTS
+        return PiperTTS(c["voices_dir"], c["voices"])
+    raise ValueError(f"Unknown TTS provider: {c['provider']}")
 
 
 def build_retriever(cfg: dict):

@@ -7,14 +7,18 @@ server:
 stt:
   provider: faster_whisper
   model: small            # tiny | base | small | medium
-  device: cpu
-  compute_type: int8
+  device: cuda            # measured: small on CPU ~3.9 s, on GTX 1650 ~0.9 s
+  compute_type: int8      # float16 was 3x slower on GTX 1650
   languages: [tr, en]     # detected language is limited to these
+  # Domain words Whisper should expect; fixed "A'da 7" -> "Ada-7", "Arap" -> "ARAT".
+  hotwords: AKINROBOTICS, Ada-7, Mini Ada, ARAT, AKINCI-5, AMR, AROS
 
 llm:
   provider: ollama
   model: qwen2.5:3b
-  base_url: http://localhost:11434   # override with OLLAMA_BASE_URL env var
+  # 127.0.0.1, not "localhost": on Windows "localhost" tries IPv6 first and
+  # waits ~2 s before falling back to IPv4 (measured). Override with OLLAMA_BASE_URL.
+  base_url: http://127.0.0.1:11434
   temperature: 0.2
   history_turns: 3        # previous Q/A pairs kept as conversation memory
 
@@ -29,7 +33,7 @@ tts:
   provider: piper
   voices_dir: models/piper
   voices:
-    tr: tr_TR-fahrettin-medium
+    tr: tr_TR-dfki-medium
     en: en_US-lessac-medium
 
 logging:
