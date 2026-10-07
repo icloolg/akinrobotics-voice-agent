@@ -64,6 +64,20 @@ README'ye girecek bulgular ve açık işler.
     1. sıradaki parça doğru bölüm (önceden "Ada-7 kaç kilo?" için Mini Ada 1. sıradaydı). Yönlendirme
     ve eşik değişmeden 21/21 doğru. Cevap artık 9 robotu sayıyor.
 
+20. **Ajan değerlendirme seti** (tests/agent_questions.csv, scripts/eval_agent.py): 23 soru —
+    16 bilgi (beklenen değer cevapta var mı), 3 sohbet (doğru yönlendirme), 4 kapsam dışı (bilgi uydurmuyor mu).
+21. **Ölçüm tuzağı — Ollama önbelleği:** Aynı test ikinci kez çalışınca toplam süre 2416 → 1075 ms düştü,
+    oysa gerçek bir değişiklik yoktu (Ollama eski promptları bellekte tutuyor). Çözüm: her test çalıştırmasında
+    sistem promptunun başına rastgele etiket → her çalıştırma soğuk başlıyor. Doğrulama: aynı ayar iki kez
+    → 2513 / 2515 ms.
+22. **top_k ve geçmiş (soğuk önbellekle):** top_k=3/geçmiş=3: ilk cümle 3268 ms, en kötü 4745 ms, 21/23.
+    **top_k=2/geçmiş=1: 2515 ms (−%23), en kötü 3615 ms, 20–21/23.** top_k=1: çok hızlı ama doğruluk 19/23.
+    Doğruluk çalıştırmalar arasında ±1 oynuyor (temperature 0.2).
+23. **Cümle bölme:** 100 karakteri geçen cümle son virgülden bölünüyor; satır sonu da cümle sonu;
+    liste işaretleri temizlenip kısa maddeler virgülle birleşiyor ("Eğitim, Sağlık").
+24. **Halüsinasyon örneği:** "Ada-7 uçabilir mi?" → Ada-7 bölümü eşiği geçiyor (konu ilgili) ve model
+    "Ada-7 uçabilir, ancak..." diyor. Eşik tek başına yetmiyor; açık iş.
+
 ## Açık işler
 
 - [ ] **Dil karışması:** İngilizce soruya bir kez Türkçe ve yanlış cevap verdi (şarj süresi ile

@@ -30,13 +30,13 @@ llm:
   # waits ~2 s before falling back to IPv4 (measured). Override with OLLAMA_BASE_URL.
   base_url: http://127.0.0.1:11434
   temperature: 0.2
-  history_turns: 3        # previous Q/A pairs kept as conversation memory
+  history_turns: 1        # previous Q/A pairs kept; each one makes the prompt longer (slower)
 
 rag:
   embedding_model: intfloat/multilingual-e5-small
   db_path: data/chroma
   knowledge_dir: knowledge
-  top_k: 3
+  top_k: 2               # measured: 3 -> 2 = first sentence 3345 -> 2352 ms, accuracy 20 -> 21/23
   min_score: 0.80         # below this cosine similarity -> "I don't know"
 
 router:                   # small talk vs knowledge question (see app/agent/router.py)

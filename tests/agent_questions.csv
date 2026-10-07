@@ -1,0 +1,24 @@
+language,category,question,expected
+tr,bilgi,Ada-7 kaç kilogram?,65
+tr,bilgi,Mini Ada'nın bataryası kaç saat dayanıyor?,8
+tr,bilgi,ARAT merdiven çıkabilir mi?,evet|çıkabilir
+tr,bilgi,AKINCI-5'in boyu kaç santimetre?,129
+tr,bilgi,AMR v1000 en fazla kaç kilogram yük taşır?,1000|bin
+tr,bilgi,UV-C robotu 60 dakikada kaç metrekare alanı temizler?,70
+tr,bilgi,Servis Robotu V3'te kaç tepsi var?,3|üç
+tr,bilgi,Hangi robotlarınız var?,Ada-7&Mini Ada&ARAT&AKINCI-5&AMR
+tr,bilgi,AROS nedir?,işletim sistemi
+tr,bilgi,AKINSOFT'un kurucusu kimdir?,Özgür Akın
+tr,bilgi,Fabrikanın kapalı alanı kaç metrekare?,3.800|3800
+en,bilgi,How much does Ada-7 weigh?,65
+en,bilgi,How long does the Mini Ada battery last?,8|eight
+en,bilgi,Can ARAT climb stairs?,yes|can
+en,bilgi,What is AROS?,operating system
+en,bilgi,How fast can AKINCI-5 move?,2.5|2,5
+tr,sohbet,Merhaba nasılsın?,
+tr,sohbet,Sen kimsin?,
+en,sohbet,Who are you?,
+tr,kapsam_disi,Bugün hava nasıl?,
+tr,kapsam_disi,Türkiye'nin başkenti neresi?,
+en,kapsam_disi,Who won the World Cup?,
+tr,kapsam_disi,Ada-7 uçabilir mi?,
