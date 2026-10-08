@@ -1,4 +1,4 @@
-"""Voice agent server.
+"""AkınVoice server: browser client, WebSocket voice turns, admin API.
 
     uvicorn app.main:app --host 0.0.0.0 --port 8000
 
@@ -7,6 +7,7 @@ Open http://localhost:8000 for the browser client, or run client/voice_client.py
 WebSocket protocol (/ws):
   client -> server : binary = int16 PCM, 16 kHz mono mic audio (continuous)
                      text   = {"type": "reset"}  (forget conversation history)
+                              {"type": "language", "value": "auto"|"tr"|"en"}  (speech language)
   server -> client : text   = JSON events: hello, speech_start, end_of_speech,
                               transcript, sentence, empty, done
                      binary = int16 PCM answer audio at hello.sample_rate
@@ -28,9 +29,11 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.admin import create_router as admin_router
 from app.audio import pcm16_to_float, resample
 from app.config import load_config
-from app.factory import build_agent, build_stt, build_tts
+from app.factory import build_agent, build_stt, build_tts, build_verifier
+from app.knowledge import Indexer
 from app.logging_setup import setup_logging
 from app.mock_robot_api import router as mock_robot_api
 from app.pipeline import VoicePipeline
@@ -53,15 +56,16 @@ async def lifespan(_app: FastAPI):
     sample = resample(tts.synthesize("Merhaba, nasılsın?", "tr").astype("float32") / 32768,
                       tts.sample_rate, SAMPLE_RATE)
     stt.transcribe(sample)
-    state.update(stt=stt, tts=tts, agent=agent,
-                 # One turn at a time on the GPU, also with several clients connected.
-                 busy=asyncio.Lock())
+    busy = asyncio.Lock()  # one turn at a time on the GPU, also with several clients connected
+    state.update(stt=stt, tts=tts, agent=agent, verifier=build_verifier(cfg), busy=busy,
+                 indexer=Indexer(cfg, agent.retriever, busy))
     log.info("Ready.")
     yield
 
 
-app = FastAPI(title="AKINROBOTICS Voice Agent", lifespan=lifespan)
+app = FastAPI(title="AkınVoice", lifespan=lifespan)
 app.include_router(mock_robot_api)  # demo data source for the robot_status tool
+app.include_router(admin_router(cfg, state))  # /admin: knowledge sources (needs ADMIN_TOKEN)
 app.mount("/static", StaticFiles(directory=WEB_CLIENT.parent), name="static")  # robot images
 
 
@@ -86,11 +90,13 @@ class Session:
         self.ws = ws
         # Own conversation history per client; the models are shared.
         self.pipeline = VoicePipeline(state["stt"], state["agent"].fork(), state["tts"],
-                                      endpoint_ms=vad.get("min_silence_ms", 500))
+                                      endpoint_ms=vad.get("min_silence_ms", 500),
+                                      verifier=state["verifier"])
         self.task: asyncio.Task | None = None
         self.stop_flag = threading.Event()
         self.playback_end = 0.0   # loop time when the audio sent so far finishes playing
         self.announced = False    # speech_start already sent for the current utterance
+        self.language: str | None = None  # None = detect; "tr"/"en" = chosen on the page
 
     @property
     def answering(self) -> bool:
@@ -141,7 +147,7 @@ class Session:
         as soon as it exists (so audio streams out sentence by sentence)."""
         loop = asyncio.get_running_loop()
         async with state["busy"]:
-            events = self.pipeline.run_turn(utterance)
+            events = self.pipeline.run_turn(utterance, self.language)
             try:
                 while not stop.is_set():
                     event = await asyncio.to_thread(next, events, None)
@@ -185,9 +191,12 @@ async def voice(ws: WebSocket):
             if msg["type"] == "websocket.disconnect":
                 break
             if msg.get("text"):
-                if _message_type(msg["text"]) == "reset":
+                kind, data = _message(msg["text"])
+                if kind == "reset":
                     await session.stop_turn()
                     session.pipeline.agent.reset()
+                elif kind == "language":  # speech language chosen on the page
+                    session.language = data.get("value") if data.get("value") in ("tr", "en") else None
             elif msg.get("bytes"):
                 await session.on_audio(msg["bytes"])
     except (WebSocketDisconnect, RuntimeError):
@@ -197,8 +206,9 @@ async def voice(ws: WebSocket):
     log.info("Client disconnected")
 
 
-def _message_type(text: str) -> str:
+def _message(text: str) -> tuple[str, dict]:
     try:
-        return json.loads(text).get("type", "")
+        data = json.loads(text)
+        return data.get("type", ""), data
     except (ValueError, AttributeError):
-        return ""
+        return "", {}

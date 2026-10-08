@@ -1,0 +1,37 @@
+language,category,question,expected
+tr,bilgi,Fabrika Servis Robotu'nun kaç rafı var?,3|üç
+tr,bilgi,UV-C robotu yakınında insan algılarsa ne yapar?,kapat|durdur|keser
+tr,bilgi,Servis Robotu V3 kaç saatte tam şarj olur?,3|üç
+tr,bilgi,ARAT'ta kaç sensör var?,67
+tr,bilgi,Ada-7 kaç dil konuşabilir?,15
+tr,bilgi,AMR tek şarjla kaç saat çalışır?,30
+tr,bilgi,Hangi robotlar kiralanabilir?,Mini Ada&Ada-7
+tr,bilgi,AKINROBOTICS hangi üniversitelerle iş birliği yaptı?,Bahçeşehir|Haliç|Bilgi
+tr,bilgi,AKINSOFT'un kaç çözüm ortağı var?,1.258|1258
+tr,bilgi,AKINSOFT'un hangi sertifikaları var?,ISO
+tr,bilgi,Roboliza nedir?,bulut|uzaktan
+tr,bilgi,Robot kolun gripper ağırlığı ne kadar?,950
+tr,bilgi,AKINCI-5 kaç dakikada şarj olur?,30|otuz
+en,bilgi,How many trays does Servis Robotu V3 have?,3|three
+en,bilgi,What sensors does Mini Ada have?,lidar|camera
+en,bilgi,How many countries does AKINSOFT serve?,51
+en,bilgi,What is Ar-Mobil?,mobile
+en,bilgi,How big is the AKINROBOTICS factory?,11.000|11,000|3.800|3,800
+tr,cikarim,Ada-7 ile Mini Ada'dan hangisi daha ağır?,Ada-7
+tr,cikarim,AKINSOFT mu daha önce kuruldu yoksa AKINROBOTICS mi?,AKINSOFT
+en,cikarim,"Which is older, AKINSOFT or AKINROBOTICS?",AKINSOFT
+tr,bilgi,ARAT ne kadar yük taşıyabilir?,9|dokuz
+tr,takip,Peki ne kadar hızlı gidebilir?,1.8|1,8
+tr,cevapsiz,Ada-7'nin garantisi kaç yıl?,!yıl garanti&!yıllık
+tr,cevapsiz,ARAT su geçirmez mi?,!evet&!su geçirmezdir
+en,cevapsiz,Does AKINCI-5 have a camera on its back?,!yes&!it has a camera on its back
+tr,cevapsiz,Mini Ada kaç farklı renkte satılıyor?,!renkte satılır&!renk seçeneği vardır
+tr,kapsam_disi,Konya'da bugün hava nasıl?,
+en,kapsam_disi,What is the capital of France?,
+tr,arac:robot_status,Şu anda hangi robotlar şarj oluyor?,Ada-7
+tr,arac:robot_specs,En yavaş robot hangisi?,UV-C
+en,arac:robot_specs,Which robot takes the longest to charge?,AMR
+tr,arac:datetime,Bugün hangi gün?,Pazartesi|Salı|Çarşamba|Perşembe|Cuma|Cumartesi|Pazar
+tr,sohbet,"Günaydın, nasılsınız?",
+en,sohbet,Thanks a lot!,
+tr,sohbet,Görüşmek üzere.,

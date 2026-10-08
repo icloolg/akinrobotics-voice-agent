@@ -2,6 +2,8 @@
 
     python -m scripts.eval_agent
     python -m scripts.eval_agent --top-k 2 --history 1      # try other settings
+    python -m scripts.eval_agent --questions tests/agent_questions_heldout.csv
+        # questions never used while tuning: run once, report as is, do not tune on them
 
 Questions: tests/agent_questions.csv
   bilgi       -> answer must contain the expected value(s)
@@ -11,6 +13,7 @@ Questions: tests/agent_questions.csv
   cevapsiz    -> on-topic but NOT in the documents ("Ada-7 uçabilir mi?"): passes
                  the retrieval threshold, so only the LLM can refuse. Must say it
                  has no information; any yes/no/number is a hallucination.
+  cikarim     -> needs two facts combined ("AKINSOFT ile AKINROBOTICS farkı"); checked like bilgi
   takip       -> follow-up without the topic ("Ne zaman kurulmuş?" right after
                  "AKINSOFT nedir?"); checked like bilgi
   arac:<name> -> must be routed to that tool and the answer must contain the expected value
@@ -32,9 +35,9 @@ import requests
 from app.agent import prompts
 from app.agent.agent import AgentResult
 from app.config import load_config
-from app.factory import build_agent
+from app.agent.verify import verified_sentences
+from app.factory import build_agent, build_verifier
 from app.logging_setup import setup_logging
-from app.text import SentenceSplitter
 
 # An answer counts as "no information" only if it says so. "Hayır, yüzemez" is
 # also wrong for an unanswerable question: the documents do not say that either.
@@ -53,7 +56,7 @@ def is_correct(category: str, expected: str, result: AgentResult) -> bool:
         if result.tool != category.split(":", 1)[1]:
             return False
         category = "bilgi"
-    if category == "takip":
+    if category in ("takip", "cikarim"):
         category = "bilgi"
     if category == "sohbet":
         return result.route == "chitchat"
@@ -92,6 +95,11 @@ def main() -> None:
     parser.add_argument("--top-k", type=int)
     parser.add_argument("--history", type=int)
     parser.add_argument("--temperature", type=float)
+    parser.add_argument("--verify", choices=["on", "off"], help="NLI sentence check (default: config)")
+    parser.add_argument("--combine", choices=["on", "off"],
+                        help="prompt lets the LLM combine facts (default: on when verify is on)")
+    parser.add_argument("--questions", default="tests/agent_questions.csv",
+                        help="tests/agent_questions_heldout.csv = questions never used while tuning")
     parser.add_argument("--quiet", action="store_true", help="only print the summary")
     args = parser.parse_args()
 
@@ -112,20 +120,28 @@ def main() -> None:
     prompts.CHITCHAT_SYSTEM = {k: tag + v for k, v in prompts.CHITCHAT_SYSTEM.items()}
     if "robot_status" in cfg.get("tools", {}).get("enabled", []):
         ensure_mock_api(cfg["tools"]["robot_status"]["url"])
+    if args.verify:
+        cfg.setdefault("verify", {})["enabled"] = args.verify == "on"
     agent = build_agent(cfg)
+    if args.combine:
+        agent.allow_combining = args.combine == "on"
+    verifier = build_verifier(cfg)
     agent.llm.warmup()
 
-    with open("tests/agent_questions.csv", encoding="utf-8") as f:
+    with open(args.questions, encoding="utf-8") as f:
         questions = list(csv.DictReader(f))
 
     rows = []
     for q in questions:
-        result, splitter = AgentResult(), SentenceSplitter()
+        result = AgentResult()
         start = time.perf_counter()
         first_sentence = None
-        for token in agent.answer(q["question"], q["language"], result):
-            if first_sentence is None and splitter.push(token):
+        # Same sentence check as the voice pipeline: we measure what would be spoken.
+        for _ in verified_sentences(agent.answer(q["question"], q["language"], result),
+                                    result, verifier, q["language"]):
+            if first_sentence is None:
                 first_sentence = time.perf_counter() - start
+        result.answer = result.spoken or result.answer
         total = time.perf_counter() - start
         first_sentence = first_sentence or total
         ok = is_correct(q["category"], q["expected"], result)
@@ -136,7 +152,7 @@ def main() -> None:
 
     print(f"\nAyarlar: top_k={cfg['rag']['top_k']} history={cfg['llm']['history_turns']} "
           f"temperature={cfg['llm']['temperature']}")
-    for cat in ("bilgi", "takip", "sohbet", "kapsam_disi", "cevapsiz", "arac"):
+    for cat in ("bilgi", "cikarim", "takip", "sohbet", "kapsam_disi", "cevapsiz", "arac"):
         sel = [r for r in rows if r[0]["category"].split(":")[0] == cat]
         print(f"  {cat:12s} doğru {sum(r[2] for r in sel)}/{len(sel)}")
     rag = [r for r in rows if r[1].route == "rag"]

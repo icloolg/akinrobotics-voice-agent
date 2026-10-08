@@ -1,6 +1,6 @@
 """One conversation turn: utterance audio in -> events + audio out.
 
-    STT -> Agent (RAG + LLM stream) -> SentenceSplitter -> TTS
+    STT -> Agent (RAG + LLM stream) -> SentenceSplitter -> NLI check -> TTS
 
 Every sentence is spoken as soon as it is complete, so the user hears the
 first sentence while the LLM is still writing the rest. This is the main
@@ -22,30 +22,33 @@ from typing import Iterator
 import numpy as np
 
 from app.agent.agent import Agent, AgentResult
+from app.agent.verify import Verifier, verified_sentences
 from app.metrics import TurnTimer, rtf
 from app.providers.base import STTProvider, TTSProvider
-from app.text import SentenceSplitter
 
 log = logging.getLogger(__name__)
 
 
 class VoicePipeline:
-    def __init__(self, stt: STTProvider, agent: Agent, tts: TTSProvider, endpoint_ms: float = 0):
+    def __init__(self, stt: STTProvider, agent: Agent, tts: TTSProvider, endpoint_ms: float = 0,
+                 verifier: Verifier | None = None):
         self.stt = stt
         self.agent = agent
         self.tts = tts
+        self.verifier = verifier  # None = sentences are spoken unchecked
         # Silence the VAD waits for before it decides the user has stopped
         # (vad.min_silence_ms). The timer starts *after* that wait, so it is
         # added to get the delay the user really experiences.
         self.endpoint_ms = endpoint_ms
         self.turns = 0
 
-    def run_turn(self, audio: np.ndarray) -> Iterator[dict | bytes]:
+    def run_turn(self, audio: np.ndarray, language: str | None = None) -> Iterator[dict | bytes]:
+        """language: None = detect (default); "tr"/"en" = chosen by the user on the page."""
         self.turns += 1
         timer = TurnTimer(self.turns)  # t=0: VAD decided the user stopped talking
 
         # 1. Speech -> text
-        transcript = self.stt.transcribe(audio)
+        transcript = self.stt.transcribe(audio, language)
         timer.mark("stt_done")
         if not transcript.text:
             yield {"type": "empty"}
@@ -56,7 +59,6 @@ class VoicePipeline:
 
         # 2. Text -> answer stream -> 3. sentences -> 4. speech
         result = AgentResult()
-        splitter = SentenceSplitter()
         tts_seconds = audio_seconds = 0.0
 
         def speak(sentence: str):
@@ -69,11 +71,12 @@ class VoicePipeline:
             yield {"type": "sentence", "text": sentence}
             yield pcm.tobytes()
 
-        for token in self.agent.answer(transcript.text, lang, result):
-            timer.mark("llm_first_token")
-            for sentence in splitter.push(token):
-                yield from speak(sentence)
-        for sentence in splitter.flush():
+        def tokens():
+            for token in self.agent.answer(transcript.text, lang, result):
+                timer.mark("llm_first_token")
+                yield token
+
+        for sentence in verified_sentences(tokens(), result, self.verifier, lang):
             yield from speak(sentence)
         timer.mark("done")
 
@@ -84,7 +87,8 @@ class VoicePipeline:
             "language": lang,
             "question": transcript.text,
             "followup_as": result.question or None,  # follow-up rewritten with the current topic
-            "answer": result.answer,
+            "answer": result.spoken or result.answer,
+            "dropped": result.dropped,  # sentences the NLI check did not let through
             "route": result.route,
             "grounded": result.grounded,
             "sources": ([f"tool:{result.tool}"] if result.tool else

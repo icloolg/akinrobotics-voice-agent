@@ -223,6 +223,166 @@ README'ye girecek bulgular ve açık işler.
     2978 ms. Konu takibi geçmişin işini görüyor; geçmiş prompt önbelleğini de bozuyordu → history_turns: 0.
     "Mini Ada yüzebilir mi?" iki ayar arasında gidip geliyor (cevapsız 7-8/8).
     Ayrıca: İngilizce cevapta "4 Aralık 1996" → "April 4, 1996" (Türkçe bağlamı çevirirken ay hatası, 3B sınırı).
+55. **Sohbet cevapları:** Tek örnekli prompt ("Nasılsın?" → "İyiyim") model tarafından her şeye uygulanıyordu:
+    "Teşekkürler"/"Görüşürüz" → "İyiyim, teşekkür ederim"; "Thank you"/"Goodbye" → kendini tanıtma. İltifatlar
+    ("Harikasın") sohbet olarak tanınmıyordu. Her tür için ayrı örnek (selam, hal hatır, teşekkür, iltifat, veda,
+    kim olduğu) + yönlendiriciye iltifat örnekleri → 14 sohbet cümlesinde ~6 → 13 uygun cevap. Kalan: "Sağ ol" →
+    "İyiyim". Not: noktalamasız "Harikasın" 0.900 skor aldı (eşik 0.90), Whisper'ın ürettiği "Harikasın." 0.928.
+    Regresyon: 49/53 değişmedi.
+56. **Sohbet: tek tek örnek yerine benzerlikle kategori (app/agent/smalltalk.py):** 6 kategori (selam, hal hatır,
+    teşekkür, iltifat, veda, kimlik), her birinde birkaç örnek + TR/EN hazır cevap; yeni cümle en benzer örneğin
+    kategorisine gidiyor, cevap LLM'siz. Örneklerde OLMAYAN 24 ifade: 22/24 doğru kategori ("Sağ ol", "Thanks a
+    lot", "Süpersin", "You rock", "Kimsin sen?"...). Eşik 0.88 (doğrular 0.869-0.968); altında kalan LLM'e gider.
+    - Yönlendiricinin "sohbet mi?" kapısı yeni ifadeleri kaçırıyordu (0.90/0.10). 16 yeni sohbet ifadesi + 12 bilgi
+      sorusuyla yeniden ölçüldü: fark değeri ayırıyor (sohbet +0.092..+0.172, bilgi en çok +0.054), mutlak skor
+      ayırmıyor → min 0.86, fark 0.08.
+    - Yan etki: "How fast is it?" sohbet sanıldı (0.886, "how is it going"a benziyor) → takip 4/4 → 2/4. Çözüm:
+      ölçü soran kelimeler ("kaç", "ne kadar", "how fast/much/long"...) varsa sohbet sayılmıyor → takip 4/4.
+    - Sonuç: bilinen 14 sohbet cümlesi 14/14, yeni 12 ifadede 10 uygun; sohbet cevabı ~1 sn → ~20 ms.
+      Regresyon 48/53 (hiçbir bilgi sorusu sohbete gitmedi; fark "Hangi robotlarınız var?" dalgalanması).
+57. **PDF kaynak desteği (app/agent/pdf.py):** knowledge/ klasörüne PDF bırakmak yeterli. Resmi Robot Kol kataloğu
+    (akinsoft.com.tr, 40 MB, 4 sayfa) indirildi — robot kol bilgi tabanında hiç yoktu. pypdf 0 karakter verdi: metin
+    resim olarak gömülü → sayfa görsele çevrilip EasyOCR (tr+en) ile okunuyor (~7 sn/sayfa, data/ocr_cache'te önbellek).
+    - Düz OCR iki sütunlu tabloyu "Ağırlık, Taşıma Kapasitesi, 27 kg, 5 kg" diye okudu → İngilizce soruya "payload
+      27 kg" (yanlış), Türkçe sorular reddedildi: 0/7.
+    - Düzene duyarlı OCR: kutu konumlarıyla her değer, üstündeki aynı hizadaki küçük etiketle eşleşiyor
+      ("Ağırlık / Weight: 27 kg"). İlk sürüm "27 kg"yi 205 px'lik "Robot Kol" başlığının kopyası sanıp attı → kopya
+      penceresi yarım satıra daraltıldı. 7 özelliğin 7'si doğru eşleşiyor. Cevaplar: 3/7 (payload 5 kg, kontrol, gripper
+      açılma boyu); kalan hatalar gürültülü OCR metni (TR/EN iç içe, "Tasıma", başlıksız liste) + 3B modelin temkini.
+    - Veri tutarsızlığı: Robot Kol kataloğundaki ağırlık (27 kg) ve ölçüler (44×75×58) sitede ARAT için yazanla aynı.
+    - Regresyon: 57 soruda 50/57 (eski 53 soru aynı seviyede, robot kol 2/4).
+58. **Embedding karşılaştırması (scripts/compare_embeddings.py, eşikten bağımsız):** 27 etiketli soru + 8 konu dışı.
+    e5-small (118M): 1. sıra 24/27, ilk 2 25/27, boşluk −0.006 (3 cevaplanabilir soru konu dışından düşük), 13 ms/soru,
+    indeks 1.7 sn. BGE-M3 (568M, ~2.3 GB): 25/27, 26/27, boşluk **+0.061 (çakışma yok)**, 94 ms/soru, indeks 14.8 sn.
+    BGE-M3'ün asıl kazancı "bilmiyorum" eşiğinin güvenilirliği; doğrulukta +1. Geçiş config'te 2 satır (model + önekler,
+    `rag.query_prefix/passage_prefix`) ama 7 benzerlik eşiğinin hepsi e5 ölçeğine göre (BGE skorları 0.39-0.45 aralığında)
+    → yeniden ölçüm gerekir. Teslim işleri öncelikli olduğu için e5'te kalındı; ilk iyileştirme adayı.
+59. **Çıkarım + NLI cevap doğrulaması (app/agent/verify.py):** "AKINSOFT ile AKINROBOTICS farkı nedir?" iki doküman
+    bulunduğu halde reddediliyordu (sıkı kural birleştirmeyi engelliyor). Literatürden: RAGAS "faithfulness" / NLI ile
+    doğrulama. Prompt "parçaları birleştirebilirsin" diye gevşedi; her cümle seslendirilmeden önce çok dilli NLI
+    (mDeBERTa-v3-base-xnli) ile bağlama karşı kontrol ediliyor, desteklenmeyen cümle söylenmiyor.
+    - 12 cümlelik testte 11/12 doğru karar. PyTorch'ta 1.6 sn/kontrol (DeBERTa dikkat katmanı bu sürümde yavaş;
+      int8 nicemleme hata verdi), ONNX Runtime'a çevrilince 142 ms (gerçek bağlamlarla ~340 ms). Küçük MiniLM-NLI:
+      13 ms ama 9/12.
+    - Eval'e 5 çıkarım sorusu (62 soru). Eşik 0.5 ile: bilgi 21 → 13/27, toplam 40/62 — doğru cümleler eleniyordu.
+    - Kalibrasyon (scripts/calibrate_verifier.py): doğru 55 cümlenin skorları 0.01-1.00 arası (sayılar, sıralı liste,
+      bozuk Türkçe, Türkçe bağlama İngilizce cevap; "UV-C 70 metrekare" birebir dokümanda olduğu halde 0.01). Eşik 0.5'te
+      42/55, 0.10'da 52/55 geçiyor. Sınırlama: bu çalıştırmada uydurma cümle tek (0.00); ilk testte uydurmalar 0.02-0.29.
+    - Sonuç (62 soru): A sıkı kural 51/62, çıkarım 2/5, cevapsız 7/8, ilk cümle 1449 ms · B gevşek 53/62, 4/5, **6/8**,
+      1634 ms · **C gevşek+NLI@0.10: 52/62, 3/5, cevapsız 8/8, araç 11/11, ilk cümle 2077 ms (+~0.6 sn)**. C seçildi:
+      halüsinasyon case'te ayrı kriter. Not: test çıkarım cevaplarını sert değerlendiriyor ("Roboliza AROS ailesinde
+      bir yazılımdır" doğru ama "bulut" aranıyor).
+60. **Temiz sesli ölçüm oturumu (son ayarlar, NLI açık, 44 tur, logs/turns.jsonl):** yanıt gecikmesi medyanı
+    RAG 3.6 sn (eski 5.1), araç 3.3, sohbet 1.8, cevap yok 1.8; p95 RAG 5.5. RTF STT 0.54, TTS 0.06. Planlanan 28
+    sorudan: cevapsız 6/6 uydurma yok; hataların çoğu STT ("Harikasın" → "Haydi Kasım" 4 kez, "arızalı" → "arzanın",
+    "What time is it?" → Türkçe sanılıp "Ne zaman bu?" diye ÇEVRİLDİ, "Saat kaç?" → "Alright, let's cut").
+    Bulgular: (1) Türkçe öncelikli dil kuralı (kayıtlı sette 18/18) canlıda kısa İngilizce soruları Türkçeye çekiyor;
+    (2) NLI sadakati kontrol ediyor, ilgiyi değil: yanlış duyulan "Hangi robot arzanın?" → dokümandaki AR-AS anlatıldı.
+61. **Ayrılmış test seti (tests/agent_questions_heldout.csv, 36 soru, geliştirmede hiç kullanılmadı):** bir kez
+    çalıştırıldı, ardından ayar YAPILMADI. **31/36 (%86)** — geliştirme seti 52/62 (%84): ayarlar genelleşiyor.
+    Hatalar: 4 aşırı temkin (Servis Robotu V3 şarj süresi, Roboliza, AKINSOFT kaç ülke (EN), Ar-Mobil (EN));
+    1 sınırda ("camera on its back?" → "AKINCI-5 has a depth camera": uydurma değil ama red de değil).
+62. **Serbest sesli test (kullanıcının kendi soruları, 12 tur):** 4 doğru (AKINSOFT özeti, 120+ yazılım, ERP
+    ürünleri), 4 konuda dürüst red veya kısmi (WOLVOX MRP detayı, dil seçeneği sayısı, saha personeli, ödül sayısı),
+    **0 hatalı/uydurma**. Hepsi bilgi tabanı KAPSAMI eksiğiydi (AKINSOFT özetimde yoktu; sitede var) — model doğru
+    davrandı. Sonrasında akinsoft.com.tr ana sayfasından "AKINSOFT Rakamlarla" (16 dil, 112 ödül, 4.957 saha
+    personeli, 143 sektör...) ve "WOLVOX MRP" bölümleri eklendi; WOLVOX sözlüğe ve konu listesine eklendi ("VOLVOX"
+    diye duyulmuştu). Dört soru artık doğru; İngilizce "How many awards?" ilgili bölümü bulamıyor (diller arası arama).
+    Regresyon: STT 23/23, WER 0.31; ajan 51/62 (±1). README'ye serbest test EKLEMEDEN ÖNCEKİ hâliyle yazılacak.
+63. **Ada-7 dil listesi ve sesler eklendi (kullanıcının sitedeki metni). NLI liste sorunu:** virgülden bölünen liste
+    parçaları ("bağırma ve sessizlik gibi.") tek başına elendi. Parçayı cümlenin önceki parçalarıyla birlikte kontrol
+    etmek yetmedi: NLI, dokümandan KELİMESİ KELİMESİNE kopyalanmış iki noktalı liste cümlesine 0.05 verdi (aynı bilgi düz
+    cümleyle 0.87). Çözüm: önce kelime örtüşmesi — cümlenin kelimelerinin ≥%85'i bağlamda varsa NLI'sız kabul. İstisna:
+    tek başına sayı içeren cümleler ("24 saat dayanır" — kelimeler bağlamda var ama sayı yanlış eşlenmiş) her zaman
+    NLI'a gider; "Ada-7"/"V3" içindeki rakam sayı sayılmaz. Uydurmalar bağlamda olmayan kelime içerdiği için NLI'a gider.
+    Sonuç: **54/62** (en iyi), bilgi 21/27, cevapsız 8/8, araç 11/11; ses listesi tam cevaplanıyor.
+64. **Otomatik web yükleyici (scripts/fetch_web.py):** iki sitenin llms.txt'indeki 37 sayfa + llms-full.txt arşivleri;
+    trafilatura ile ana metin, sayfalar arası tekrar eden 92 paragraf, sayfa içi (≥%85 aynı) tekrarlar, etiketsiz tablo
+    hücreleri ve URL'ler temizlendi. robots.txt uyuldu — Python robotparser kendi varsayılan kimliğiyle reddedilip
+    "hepsi yasak" diyordu (yanlış alarm), dosya kendi kimliğimizle okunuyor.
+    - Parçalama hataları bulundu: başlıkla metin arasında boş satır yoksa bütün blok "başlık" sayılıyordu (13.745
+      karakterlik parça, ilk cümle 17 sn) → başlık = ilk satır; uzun paragraflar satır/cümle sınırından bölünüyor.
+    - Ölçüm (62 soru): elle hazırlanmış 32 parça **54/62, 2.1 sn** · +37 sayfa (172 parça) 51/62, 2.9 sn ·
+      +arşivler (848 parça) dense 49/62, 3.3 sn; hibrit 51/62, 3.5 sn. Sebepler: gürültü, eski haber bilgisi
+      ("AKINSOFT 24 yıllık" — doğrusu 31), İngilizce sorularda Türkçe sayfalara kelime eşleşmesi yok.
+    - Karar: web içeriği varsayılan indekste değil (knowledge_web/, rag.extra_dirs ile eklenebilir). Eksik bilgiler
+      elle hazırlanmış dokümanlara eklendi. "Daha fazla veri her zaman daha iyi değil."
+65. **Hibrit arama (BM25 + vektör, RRF):** Türkçe için kelimenin ilk 5 harfi kök (Can vd., 2008). Eşikler değişmesin
+    diye skorlar vektör benzerliği; hibrit sadece sıralamayı değiştiriyor. scripts/eval_retrieval.py (LLM'siz: beklenen
+    cevap ilk 2 parçada mı?): 848 parçada geliştirme seti dense 27/32 → hibrit 30/32 (ayrılmış set 22 → 20/22, raporlandı;
+    seçim sadece geliştirme setiyle yapıldı); 32 parçada ikisi eşit (50/54). Admin panelinden doküman eklendikçe bilgi
+    tabanı büyüyeceği için hibrit varsayılan.
+66. **AkınVoice: dil seçimi ve admin paneli.**
+    - Konuşma dili sayfadan seçilebiliyor (otomatik/TR/EN). Seçilirse Whisper dil algılamayı atlar. Kayıt 14
+      ("Hello, how are you?") için: otomatik → en, en → en, tr → "Merhaba, nasılsınız?" (Whisper zorlanan dile
+      çeviriyor; bu yüzden varsayılan otomatik). Arayüz dili (TR/EN) bundan ayrı bir seçim.
+    - `/admin`: dosya/URL ekle, sil, yeniden indeksle, etkin bileşenleri gör. `ADMIN_TOKEN` yoksa kapalı.
+      multipart bağımlılığı eklememek için dosya ham gövde olarak gönderiliyor. Dosya adı temizleniyor
+      (`../` yok), PDF imzası ve UTF-8 kontrol ediliyor; yalnızca indekslenen klasörlerdeki belgeler silinebiliyor.
+    - Sunucunun yeni indeksi fark etmesi parça sayısına bakarak yapılıyordu. Belge düzenlenince sayı aynı kalabilir,
+      bu yüzden artık koleksiyon kimliğine bakılıyor (arama 14 ms, fark yok). İndeksleme tur kilidiyle yapılıyor,
+      yani yarım indeksten cevap verilmiyor.
+    - Model/araç değiştirme bilerek panelde yok: modeller açılışta yüklenip ısıtılıyor, değişiklik zaten yeniden
+      başlatma istiyor; `config.yaml` tek doğru kaynak olarak kalıyor.
+67. **Doğrulayıcıda iki yöntem hatası (sesli testte bulundu).**
+    - Doğru cümle silindi: "AKINCI-5'in en yüksek hızı saniyede 2,5 metredir." AKINCI-5 parçasına göre 0.994, iki parça
+      birleştirilince 0.008 (öbür parçadaki başka robotların hızları çelişki gibi okunuyor). Artık önce parça parça
+      skorlanıyor; birleşik bağlam yalnızca hiçbir parça tek başına desteklemezse deneniyor.
+    - Yanlış cümle geçti: "…166 santimetre veya 1,66 metre olup, bu 5,43 metreye eşittir." 0.97 aldı; NLI ana iddiaya
+      bakıp eklenen sayıyı kaçırıyor. Yeni kural: cümledeki her bağımsız sayı bağlamda geçmeli (2,5 = 2.5).
+    - Eşik değişmedi (0.10). Geliştirme seti, aynı koşullarda eski/yeni: **54 → 56/62**, bilgi 21 → 23/27,
+      cevapsız 8/8 korundu. Kazanılan: AKINCI-5 boyu, UV-C alanı, Mini Ada boyutları. Kaybedilen: "Hangi yazılım
+      servisleriniz var?" (eski "doğru" cevap zaten zayıftı: "AROS servis yazılımlarını kullanır."; yenisi "bilgi yok").
+    - Bedel: ilk cümle ortalaması 2278 → 2495 ms (+0.2 sn), parça başına ayrı NLI çağrısı yüzünden. İki parça tek
+      ONNX çağrısında (batch) skorlanarak azaltılabilir.
+68. **Konu takibi cevaptan da güncelleniyor.** Sesli testte: "En hızlı robot hangisi?" → "AKINCI-5" (araç), ardından
+    "Ne kadar hızlı?" → Ada-7'nin hızı söylendi; konu yalnızca sorulardan alındığı için bir önceki sorudaki Ada-7
+    kalmıştı. Kural: soru hiçbir ad içermiyor ve cevap tam olarak bir ad içeriyorsa konu o ad olur; kullanıcının
+    sorudaki adı her zaman önceliklidir, birden çok ad (liste) belirsiz sayılıp konuyu değiştirmez.
+    Geliştirme seti: 56/62 (değişmedi), takip 4/4. Aynı akış metinle tekrarlandı: "AKINCI-5: Ne kadar hızlı?" → 2,5 m/s.
+    Gözlem: konuşma dili "Türkçe" seçilince STT 1.2 → 0.7-0.8 sn (otomatik modda belirsiz dil ikinci çözümleme yapıyor).
+69. **Soru olmayan tepkiler ("Süper!").** "AKINCI-5: Süper!" olarak arandı ve AKINCI-5 bilgisi okundu. Embedding
+    ayırmıyor: tepkiler bilgi tabanına 0.80-0.83 (takip soruları gibi), sohbet skorları da çakışıyor (0.870-0.936 /
+    0.814-0.886). Dilbilgisel kural (`router.is_request`): soru işareti, soru eki, soru kelimesi veya istek fiili.
+    Geliştirme setinin 62 sorusunun hepsi soru sayıldı; görülmemiş 12 tepkinin hiçbiri. Soru olmayan, ad içermeyen
+    ve yönlendirilmeyen ifade → sabit onay cevabı (LLM yok). Sohbet sınıflandırıcısı "Süper!"i selamlama sanıyordu,
+    bu yüzden kategori cevabı değil tek nötr cevap. Geliştirme seti 56/62; bir koşuda cevapsız 7/8 çıktı, tek başına
+    ve tekrar koşuda 8/8 (koşular arası ±1, o sırada eşzamanlı sesli test de vardı).
+70. **Whisper halüsinasyonları.** Sesli testte gürültüden "Bu videoyu izlediğiniz için teşekkürler." yazıldı (Whisper'ın
+    video altyazılarından öğrendiği bilinen hata). İki genel önlem: openai-whisper'ın varsayılan sessizlik kuralı
+    (no_speech_prob > 0.6 ve avg_logprob < -1.0 → segment atılır) ve bilinen altyazı kalıpları listesi. eval_stt:
+    WER 0.31, dil 23/23 (değişmedi). Kayıt 19 ("Saat kaç?") GPU'da deterministik değil: bazen "AKINCI-5", bazen
+    hotwords cümlesinin yankısı (var olan yankı filtresi siler).
+71. **AkınVoice kendini anlatıyor.** "What is the AKIN voice?" cevapsızdı. `knowledge/akinvoice_tr.md` eklendi; konu
+    listesine "Akın Voice" (boşluk isteğe bağlı: "AKIN voice", "AkınVoice" eşleşir). İlk sürümde model "AKINROBOTICS
+    tarafından geliştirilen" dedi ve NLI geçirdi; geliştiren bilgisi tanım cümlesinin içine alındı ("bir adayın
+    değerlendirme görevi olarak geliştirdiği ...; AKINROBOTICS veya AKINSOFT'un ürünü değildir"). Türkçe cevaplar
+    doğru; İngilizce cevaba ilgisiz ve yanlış çevrilmiş bir AKINSOFT cümlesi ekleniyor ("cybersecurity") — NLI
+    alakayı ölçmüyor, diller arası çeviri zayıf: İngilizce kaynak eklemek gelecek adım.
+72. **Arka planda indeksleme ve konu önerileri (kullanıcı geri bildirimi: "indeksleme uzun sürdü, config'e ad
+    eklemek kullanıcı dostu değil").**
+    - Mini Ada kılavuzu (20 sayfa, hiçbirinde metin katmanı yok) OCR ile ~3.5 dk sürdü ve bu sırada tur kilidi
+      tutulduğu için asistan cevap veremedi. Yeni düzen: hazırlık (okuma, OCR, parçalama, embedding) kilitsiz, yalnızca
+      indeks değişimi (~1 sn) kilit altında; yükleme/silme indekslemeyi kendisi başlatır; panel ilerlemeyi gösterir.
+      İkinci indeksleme (OCR önbellekte) 15 sn.
+    - Otomatik konu çıkarma ölçüldü: adların çoğunu buldu ama çıktının ~%40'ı gürültü ("Durum", "QR", "Teknik
+      Çizimler"); gürültülü bir konu sonraki soruları sessizce yeniden yazar. Bu yüzden öneri + tek tıkla onay;
+      onaylananlar data/topics.json'da, sunucu yeniden başlamadan geçerli. Öneriler yalnızca yeni/değişen belgeler için.
+    - Refaktör: belge okuma/PDF/parçalama/web `app/knowledge/` paketine taşındı (Retriever yalnızca indeks ve arama);
+      `search()` paylaşılan `best_score` alanı yerine `SearchResult` döndürüyor; `Agent.answer` adımlara bölündü;
+      factory'de STT/LLM/TTS/araçlar aynı kayıt (registry) kalıbında; admin artık private alanlara ve scripts'e
+      bağımlı değil. Bulunan hata: senkron silme uç noktası arka plan görevini başlatamıyordu (500) — async yapıldı.
+73. **Son temizlik ve Docker.**
+    - Mini Ada kılavuzu bilgi tabanından çıkarıldı: temiz ölçümde kılavuzsuz 55/62, kılavuzla 49/62 (3 araç sorusu
+      o koşuda sunucu yeniden başlatıldığı için düştü; geri kalan kayıp gerçek: takip, çıkarım ve "yüzebilir" uydurması).
+      Yalnızca kılavuzda olan bilgiler (acil durum, KVKK, pil tipi) kaybedildi; panel demosu için kullanılır.
+    - "Ekranı." gibi soru işareti düşmüş eksiltili sorular tepki sanılıyordu. Ayırt edici özellik: bilgi tabanındaki bir
+      kelimeyi içermesi (tepkilerde 13/14 yok, eksiltili sorularda 7/8 var; "tamam" gibi söylem belirleyiciler hariç).
+    - Promptlardaki kimlik "AKINROBOTICS'in sesli asistanı" → "AkınVoice". Geliştirme seti 57/62 (bilgi 25/27,
+      cevapsız 8/8). Yorumlardaki günlük dili ("seen live") kaldırıldı; scripts/test_stt.py ve test_tts.py silindi.
+    - Docker: requirements.txt'te rank-bm25 eksikti (imaj açılışta çökerdi); torchvision CPU dizininden kuruluyor
+      (yoksa pip torch'u CUDA sürümüyle değiştiriyor); CUDA kütüphaneleri (~1.2 GB) requirements-gpu.txt'e ayrıldı,
+      yalnızca GPU imajına kurulur; indeksleme derleme sırasında bir kez yapılıp OCR önbelleği imaja alınır.
 46. **Aynı klasörde iki düzenleme oturumu:** İkinci oturum `agent.py`'yi eski kopyasıyla ezdi; 42. maddenin
     kodu ve bu notların 42-45'i kayboldu, inceleme sırasında fark edilip geri getirildi. Ders: tek oturum yazar.
 

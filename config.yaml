@@ -29,7 +29,7 @@ stt:
   # Domain words Whisper should expect; fixed "A'da 7" -> "Ada-7", "Arap" -> "ARAT".
   # Inside a Turkish sentence (not a bare name list): on 21 recordings WER 0.35 -> 0.30,
   # exact 9 -> 11. A bare list of English-looking names pushed short clips to English/CAPS.
-  hotwords: AKINSOFT ve AKINROBOTICS robotları Ada-7, Mini Ada, ARAT, AKINCI-5, AMR ve AROS hakkında sorular.
+  hotwords: AKINSOFT, WOLVOX ve AKINROBOTICS robotları Ada-7, Mini Ada, ARAT, AKINCI-5, AMR ve AROS hakkında sorular.
 
 llm:
   provider: ollama        # ollama | openai_compat (llama.cpp server, vLLM, LM Studio; see app/providers/llm/)
@@ -42,28 +42,52 @@ llm:
   temperature: 0          # deterministic: same question -> same answer (0.2 gave 20 vs 21/23 between runs)
   history_turns: 0        # follow-ups are handled by topic tracking (followup:); measured 0 vs 1 turn: 49 vs 46/53, first sentence 1683 vs 2978 ms
 
+web_sources:              # python -m scripts.fetch_web -> knowledge_web/*.md (not indexed by default)
+  sites: [https://www.akinrobotics.com, https://www.akinsoft.com.tr]   # pages listed in each site's llms.txt
+  exclude: [form, /en/, iletisim, musteri., bilgibankasi, /blog, cozum-ortaklarimiz, ucretsiz-tanitim]
+  out_dir: knowledge_web   # NOT indexed by default (measured, see NOTLAR.md); list it in rag.extra_dirs to use it
+  min_line_chars: 25      # shorter lines are table cells that lost their labels ("65 KG", "Var")
+  delay_s: 1.0            # one request per second
+
 rag:
   embedding_model: intfloat/multilingual-e5-small
   db_path: data/chroma
   knowledge_dir: knowledge
+  extra_dirs: []          # e.g. [knowledge_web] to index downloaded web pages too (measured: worse, see app/knowledge.py)
   # A section longer than this is split at paragraph ends (the title is repeated).
   # The LLM reads the context at ~5 ms/token on the GTX 1650, so shorter chunks
   # answer sooner. Changing it needs: python -m scripts.ingest, then scripts.eval_agent.
   chunk_max_chars: 900
+  search: hybrid          # dense | bm25 | hybrid (both, merged with Reciprocal Rank Fusion)
+  rrf_k: 60               # RRF constant (the usual value from the original paper)
+  candidates: 30          # how many results of each search take part in the fusion
   top_k: 2               # measured: 3 -> 2 = first sentence 3345 -> 2352 ms, accuracy 20 -> 21/23
   min_score: 0.80         # below this cosine similarity -> "I don't know"
 
 followup:                 # follow-up questions without a name (see app/agent/topics.py)
   # A question naming none of these, that is not small talk or a tool question and
   # matches no document well (best score < max_score), is searched as
-  # "<last named one>: <question>". Add the names of a new knowledge source here.
+  # "<last named one>: <question>". Names of new documents are added in the admin
+  # panel (suggested from the document, stored in data/topics.json); this list is the base.
   max_score: 0.85         # follow-ups scored 0.785-0.823 alone, self-contained questions 0.869-0.890
   topics: [AKINSOFT, AKINROBOTICS, Ada-7, Mini Ada, Servis Robotu V3, Fabrika Servis Robotu,
-           UV-C, AMR, ARAT, AKINCI-5, AROS, İstanbul Robot Müzesi]
+           UV-C, AMR, ARAT, AKINCI-5, AROS, İstanbul Robot Müzesi, Robot Kol, WOLVOX MRP, Akın Voice]
+
+smalltalk:                # kind of small talk -> ready-made reply (app/agent/smalltalk.py)
+  min_score: 0.88         # unseen phrasings: correct category 0.869-0.968; below -> the LLM replies
 
 router:                   # small talk vs knowledge question (see app/agent/router.py)
-  min_score: 0.90         # chitchat similarity needed
-  margin: 0.10            # chitchat must beat the knowledge score by this much
+  # Re-measured with 16 small-talk phrasings NOT in the examples and 12 knowledge questions:
+  # small talk beat the knowledge score by +0.092..+0.172 (one +0.042), knowledge questions
+  # by at most +0.054 ("Robotlarınız neler yapabilir?"). The margin separates them; the
+  # absolute score does not (both reach 0.91+). Was 0.90 / 0.10: unseen phrasings failed.
+  min_score: 0.86         # chitchat similarity needed
+  margin: 0.08            # chitchat must beat the knowledge score by this much
+
+verify:                   # NLI check of every answer sentence before it is spoken (app/agent/verify.py)
+  enabled: true           # on: the prompt lets the LLM combine facts; unsupported sentences are dropped
+  model_dir: models/nli   # mDeBERTa-v3-base-xnli as ONNX, made by: python -m scripts.download_models --all
+  threshold: 0.10         # entailment probability a sentence needs (calibrated, see NOTLAR.md)
 
 tools:                    # live information sources (see app/tools/base.py)
   enabled: [datetime, robot_status, robot_specs]

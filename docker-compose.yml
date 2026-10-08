@@ -10,6 +10,7 @@
 #     docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
 #
 # Another LLM:  LLM_MODEL=qwen2.5:7b docker compose up
+# Admin panel:  ADMIN_TOKEN=<anahtar> docker compose up   -> http://localhost:8000/admin
 
 services:
   ollama:                       # LLM server
@@ -44,9 +45,10 @@ services:
       LLM_MODEL: ${LLM_MODEL:-qwen2.5:3b}
       STT_DEVICE: cpu
       STT_COMPUTE_TYPE: int8
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}         # set it to turn on /admin (knowledge sources panel)
     volumes:
       - ./config.yaml:/app/config.yaml:ro   # change thresholds etc. without rebuilding
-      - ./knowledge:/app/knowledge:ro       # add a document here and restart
+      - ./knowledge:/app/knowledge          # documents; add via /admin or here + python -m scripts.ingest
       - ./logs:/app/logs                    # logs/turns.jsonl: one line of measurements per turn
 
 volumes:

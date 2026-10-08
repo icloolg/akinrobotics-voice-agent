@@ -6,7 +6,9 @@ Kaynak: https://www.akinrobotics.com ürün sayfaları (Ekim 2026'da derlenmişt
 
 Ada-7, AKINROBOTICS'in insansı sosyal robotudur. Ada-7'nin boyu 166 santimetre, ağırlığı 65 kilogramdır. Lityum iyon bataryası ile yaklaşık 8 saat çalışır, şarj süresi 3 saattir; otonom şarj ile 24 saat kesintisiz çalışabilir. En yüksek hızı saniyede 0,6 metredir.
 
-Ada-7'de 10,1 inç ekran ve LED dinamik yüz ekranı vardır. Lidar, derinlik kamerası, düşme koruma sensörü ve dokunma sensörüne sahiptir. Türkçe ve İngilizce dahil 15'ten fazla dili konuşabilir. Konuşmadaki sevinç, üzüntü ve kaygı gibi duyguları ayırt edebilir; müzik, öksürük, hapşırık ve kahkaha gibi sesleri tanıyabilir. Dört eksenli kolları ve robotik elleri vardır. Ada-7 eğitim, turizm, sağlık, perakende ve etkinlik alanlarında kullanılır.
+Ada-7'de 10,1 inç ekran ve LED dinamik yüz ekranı vardır. Lidar, derinlik kamerası, düşme koruma sensörü ve dokunma sensörüne sahiptir. Dört eksenli kolları ve robotik elleri vardır. Ada-7 eğitim, turizm, sağlık, perakende ve etkinlik alanlarında kullanılır.
+
+Ada-7 15'ten fazla dilde konuşabilir: Türkçe, İngilizce, Almanca, Arnavutça, Gürcüce, Rusça, İspanyolca, Lehçe, Fransızca, Azerbaycanca, Boşnakça, Korece, Felemenkçe, Arapça, Portekizce, Özbekçe, İtalyanca ve Çince. Ada-7 farklı sesleri algılayabilir: müzik, hapşırma, öksürme, kahkaha, şaşırma, bağırma ve sessizlik gibi sesleri ayırt ederek duruma uygun doğal tepkiler verir. Konuşmadaki sevinç, üzüntü ve kaygı gibi duyguları da ayırt edebilir.
 
 ## Mini Ada Sosyal Robot
 

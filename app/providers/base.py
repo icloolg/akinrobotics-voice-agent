@@ -22,7 +22,8 @@ class Transcript:
 
 class STTProvider(ABC):
     @abstractmethod
-    def transcribe(self, audio: np.ndarray) -> Transcript: ...
+    def transcribe(self, audio: np.ndarray, language: str | None = None) -> Transcript:
+        """language None = detect it; "tr"/"en" = the user chose it (no detection)."""
 
 
 class LLMProvider(ABC):

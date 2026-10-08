@@ -14,6 +14,14 @@ AKINSOFT, Türkiye'nin 81 ilinde ve dünyada 51 ülkede hizmet verir. Türkiye v
 
 AKINSOFT'un 120'den fazla yazılım çözümü vardır. ERP ürünleri arasında WOLVOX MRP, WOLVOX CRM ve WOLVOX İnsan Kaynakları bulunur. Muhasebe alanında WOLVOX Genel Muhasebe, ön muhasebe ve mali müşavir çözümleri sunar. Sektörel yazılımları otel, restoran ve kafe, kuaför, servis yönetimi, akaryakıt istasyonu, otopark, emlak, sürücü kursu, eğitim, sağlık ve araç satışı gibi sektörlere yöneliktir.
 
+## AKINSOFT Rakamlarla
+
+AKINSOFT'un ana sayfasında (akinsoft.com.tr, Ekim 2026) yer alan rakamlara göre AKINSOFT'un 31 yıllık tecrübesi, 4 merkezi ve 4.957 saha personeli vardır. AKINSOFT, 51 ülkede 1.258 çözüm ortağıyla 143 farklı sektöre hizmet verir ve yazılımları 16 dil seçeneği sunar. 196.000 memnun müşterisi, 194 kurumsal iş birliği ve 838 seminer ve organizasyonu bulunur. AKINSOFT bugüne kadar 112 ödül almış ve 397 robot üretmiştir.
+
+## WOLVOX MRP
+
+WOLVOX MRP, AKINSOFT'un üretim planlama yazılımıdır. Hammaddeden bitmiş ürüne kadar üretim süreçlerini tek bir platformda yönetir; kapasite, stok ve iş gücü planlamasını en uygun hale getirir. AKINSOFT, WOLVOX MRP'yi planlamayı akıllı, esnek ve kusursuz hale getiren bir çözüm olarak tanıtır.
+
 ## AKINSOFT Bulut ve E-Dönüşüm Çözümleri
 
 AKINSOFT'un bulut çözümleri arasında WolvoxCloud, e-ticaret, TaskPano, OctoCloud, QR Menü, Rezzta, Online İK ve LimonDesk bulunur. E-dönüşüm alanında e-Fatura, e-Arşiv, e-İrsaliye, e-Defter, e-Mutabakat, e-Müstahsil ve e-Sipariş hizmetleri sunar.

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AkınVoice">
+  <!-- AkınVoice mark: an "A" whose crossbar is a small sound wave. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f7ae0"/>
+      <stop offset="1" stop-color="#0b3f86"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#g)"/>
+  <path d="M15 51 L32 12 L49 51" fill="none" stroke="#fff" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <g stroke="#fff" stroke-width="3.4" stroke-linecap="round">
+    <line x1="26.75" y1="37" x2="26.75" y2="42"/>
+    <line x1="30.25" y1="33" x2="30.25" y2="46"/>
+    <line x1="33.75" y1="34.5" x2="33.75" y2="44.5"/>
+    <line x1="37.25" y1="37.5" x2="37.25" y2="41.5"/>
+  </g>
+</svg>

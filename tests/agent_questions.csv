@@ -41,7 +41,7 @@ tr,arac:robot_specs,En kısa sürede şarj olan robot hangisi?,AKINCI-5
 en,arac:robot_specs,Which robot is the heaviest?,AMR
 tr,cevapsiz,En akıllı robot hangisi?,
 tr,sohbet,Nasılsın?,
-tr,bilgi,Hangi yazılım servisleriniz var?,AROS
+tr,bilgi,Hangi yazılım servisleriniz var?,AROS|WOLVOX|ERP
 tr,bilgi,AKINSOFT nedir?,yazılım
 en,bilgi,What software does AKINROBOTICS offer?,AROS
 tr,bilgi,AKINSOFT nedir?,yazılım
@@ -52,3 +52,12 @@ en,bilgi,What is ARAT?,four|quadruped
 en,takip,How fast is it?,1.8|1,8
 tr,bilgi,Mini Ada'nın boyutları nedir?,123
 tr,takip,Şarj süresi ne kadar?,2,5|2.5
+en,bilgi,What is the payload capacity of the robot arm?,5
+tr,bilgi,Robot kol nasıl kontrol edilir?,AR Mobil|AR-GUI
+tr,bilgi,Robot kolun ağırlığı ne kadar?,27
+tr,bilgi,Robot kol nerelerde kullanılır?,depo|üretim
+tr,cikarim,AKINSOFT ile AKINROBOTICS arasındaki fark nedir?,yazılım&robot
+en,cikarim,What is the difference between AKINSOFT and AKINROBOTICS?,software&robot
+tr,cikarim,AKINROBOTICS'in kurucusu kimdir?,Özgür Akın
+tr,cikarim,Roboliza ile AROS arasındaki ilişki nedir?,AROS&bulut|AROS&uzaktan
+en,cikarim,Which company does AKINROBOTICS belong to?,AKINSOFT

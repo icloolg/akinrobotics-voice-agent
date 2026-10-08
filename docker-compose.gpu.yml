@@ -15,6 +15,9 @@ services:
               capabilities: [gpu]
 
   agent:
+    build:
+      args:
+        GPU: "1"            # installs the CUDA libraries for Whisper (requirements-gpu.txt)
     environment:
       STT_DEVICE: cuda
     deploy:

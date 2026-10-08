@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AkınVoice Yönetim</title>
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap">
+<!--
+  Admin panel for the knowledge base. Talks to /admin/api/* (app/admin.py)
+  with the X-Admin-Token header. No build step, no libraries.
+-->
+<style>
+  :root {
+    --bg: #f5f5f7; --panel: #ffffff; --ink: #161618; --muted: #6e6e73; --line: #e5e7ec;
+    --brand: #0d4f9c; --accent: #0b1f3a; --accent-ink: #ffffff; --ok: #1f9d57; --warn: #d1372c; --soft: #eef2f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1420; --panel: #141d2b; --ink: #eef2f7; --muted: #94a0b2; --line: #263246;
+      --brand: #6aa8ff; --accent: #e8eef8; --accent-ink: #0b1f3a; --ok: #46c683; --warn: #f0776c; --soft: #1c2738;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 16px 32px; }
+  header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; padding: 20px 0 8px; }
+  h1 { font-size: 1.3rem; margin: 0; font-weight: 800; color: var(--brand); display: flex; align-items: center; gap: 10px; }
+  h1 img { width: 32px; height: 32px; }
+  h2 { font-size: 1rem; margin: 0 0 10px; }
+  header a { margin-left: auto; color: var(--brand); font-size: .9rem; text-decoration: none; }
+  .muted { color: var(--muted); font-size: .85rem; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 10px 30px rgba(11, 31, 58, .06); padding: 16px; margin-top: 14px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input[type=text], input[type=password], input[type=url] {
+    flex: 1; min-width: 0; font: inherit; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  button { font: inherit; font-weight: 500; border-radius: 12px; padding: 8px 14px; cursor: pointer;
+           border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.danger { color: var(--warn); padding: 4px 10px; font-size: .85rem; }
+  button:disabled { opacity: .5; cursor: default; }
+  .drop { border: 2px dashed var(--line); border-radius: 10px; padding: 18px; text-align: center; color: var(--muted); }
+  .drop.over { border-color: var(--accent); color: var(--ink); }
+  .table { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td.name { white-space: normal; word-break: break-all; }
+  th { color: var(--muted); font-weight: 600; }
+  .badge { font-size: .75rem; padding: 1px 7px; border-radius: 99px; background: var(--soft); }
+  .badge.new { color: var(--warn); }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; font-size: .88rem; }
+  dt { color: var(--muted); }
+  dd { margin: 0; word-break: break-word; }
+  #msg { min-height: 1.4em; margin-top: 10px; font-size: .9rem; }
+  #msg.ok { color: var(--ok); } #msg.err { color: var(--warn); }
+  .hidden { display: none; }
+  .steps { margin: 6px 0 0; padding-left: 20px; color: var(--muted); font-size: .85rem; }
+  .progress { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--soft); font-size: .88rem; }
+  .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-bottom: 6px; }
+  .bar i { display: block; height: 100%; width: 35%; border-radius: 3px; background: var(--brand);
+           animation: slide 1.3s ease-in-out infinite; }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+  .chip { font-size: .8rem; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel); }
+  .chip.fixed { color: var(--muted); }
+  .chip button { border: 0; background: none; padding: 0 0 0 6px; color: var(--muted); font-size: .9rem; cursor: pointer; }
+  .chip.suggest { cursor: pointer; border-style: dashed; color: var(--brand); }
+  .chip.suggest:hover { border-color: var(--brand); }
+  h3 { font-size: .8rem; margin: 12px 0 2px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><img src="/static/logo.svg" alt="">AkınVoice · Yönetim</h1>
+    <span class="muted">Bilgi kaynakları ve bileşenler</span>
+    <a href="/">← Asistana dön</a>
+  </header>
+
+  <section id="login">
+    <h2>Giriş</h2>
+    <div class="row">
+      <input type="password" id="token" placeholder="Yönetici anahtarı (ADMIN_TOKEN)" autocomplete="current-password">
+      <button class="primary" id="enter">Giriş</button>
+    </div>
+  </section>
+
+  <div id="panel" class="hidden">
+    <section>
+      <h2>Kaynak ekle</h2>
+      <div class="drop" id="drop">
+        .md, .txt veya .pdf dosyasını buraya sürükleyin ya da
+        <button id="pick">dosya seçin</button>
+        <input type="file" id="file" accept=".md,.txt,.pdf" multiple hidden>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <input type="url" id="url" placeholder="https://… web sayfası (ana metni alınır, robots.txt'ye uyulur)">
+        <button id="addUrl">Sayfayı ekle</button>
+      </div>
+      <ul class="steps">
+        <li>Eklenen belge <code id="target">knowledge/</code> klasörüne kaydedilir ve <b>kendiliğinden indekslenir</b>;
+          bu sırada asistan önceki indeksle cevap vermeye devam eder.</li>
+        <li>Metni olmayan (taranmış) PDF sayfaları OCR ile okunur: ilk seferde sayfa başına ~10 sn, sonra önbellekten.</li>
+      </ul>
+      <div id="msg"></div>
+      <div class="progress hidden" id="progress"><div class="bar"><i></i></div><span id="step">İndeksleniyor…</span></div>
+    </section>
+
+    <section>
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Bilgi kaynakları</h2>
+        <button id="reindex" title="Bütün belgeleri baştan indeksler">Tümünü yeniden indeksle</button>
+      </div>
+      <p class="muted" id="summary"></p>
+      <div class="table">
+        <table>
+          <thead><tr><th>Belge</th><th>Klasör</th><th>Boyut</th><th>Değişiklik</th><th>Parça</th><th></th></tr></thead>
+          <tbody id="docs"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Konu adları</h2>
+      <p class="muted" style="margin:0">Takip sorularında kullanılır: “ARAT kaç kilo?” ardından “Kaç saat çalışır?” sorusu ARAT hakkında aranır.
+        Yeni belgelerdeki adlar aşağıda önerilir; doğru olanlara tıklayıp ekleyin.</p>
+      <h3>Önerilenler</h3>
+      <div class="chips" id="suggested"><span class="muted">Yeni belge indekslenince burada görünür.</span></div>
+      <h3>Eklenenler</h3>
+      <div class="chips" id="confirmed"></div>
+      <div class="row" style="margin-top:6px">
+        <input type="text" id="newTopic" placeholder="Ad ekle (ör. WOLVOX ERP)" maxlength="60">
+        <button id="addTopic">Ekle</button>
+      </div>
+      <h3>config.yaml'dakiler</h3>
+      <div class="chips" id="configured"></div>
+    </section>
+
+    <section>
+      <h2>Etkin bileşenler</h2>
+      <dl id="components"></dl>
+      <ul class="steps">
+        <li><b>Sağlayıcı değişimi:</b> <code>config.yaml</code> → <code>stt</code> / <code>llm</code> / <code>tts</code> / <code>rag.embedding_model</code>.
+          Her sağlayıcı <code>app/providers/base.py</code> arayüzünü uygular, <code>app/factory.py</code> config'e göre örnekler.</li>
+        <li><b>Yeni araç:</b> <code>app/tools/base.py</code> → <code>Tool</code> alt sınıfı (<code>examples</code>, <code>keywords</code>, <code>run()</code>),
+          <code>factory.build_tools</code> kaydı ve <code>tools.enabled</code> listesine ad.</li>
+        <li><b>Yeniden başlatma gerekir:</b> modeller süreç başında bir kez yüklenir ve warm-up çıkarımından geçirilir
+          (<code>app/main.py</code> → <code>lifespan</code>); çalışan süreçte sıcak değiştirme (hot-swap) yapılmaz.</li>
+      </ul>
+    </section>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let token = '';
+try { token = sessionStorage.getItem('akinvoice.admin') || ''; } catch {}
+
+function say(text, kind = '') { $('msg').textContent = text; $('msg').className = kind; }
+
+async function api(path, options = {}) {
+  const res = await fetch('/admin/api/' + path, { ...options, headers: { 'X-Admin-Token': token, ...(options.headers || {}) } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.detail || res.statusText), { status: res.status });
+  return data;
+}
+
+async function enter() {
+  try {
+    const [list, comps, tp, st] = await Promise.all([api('sources'), api('components'), api('topics'), api('status')]);
+    topics = tp; renderTopics();
+    if (st.state === 'running') watch(); else showSuggestions(st.suggestions || {});
+    try { sessionStorage.setItem('akinvoice.admin', token); } catch {}
+    $('login').classList.add('hidden'); $('panel').classList.remove('hidden');
+    render(list);
+    $('components').replaceChildren(...Object.entries(comps).flatMap(([k, v]) => {
+      const dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = k; dd.textContent = v; return [dt, dd];
+    }));
+  } catch (e) {
+    $('login').classList.remove('hidden'); $('panel').classList.add('hidden');
+    if (token) alert(e.message);
+  }
+}
+
+function render(list) {
+  $('target').textContent = list.folders[0] + '/';
+  const pending = list.documents.filter(d => !d.chunks).length;
+  $('summary').textContent = `${list.documents.length} belge · indekste ${list.total_chunks} parça`
+    + (pending ? ` · ${pending} belge henüz indekslenmedi` : '');
+  $('docs').replaceChildren(...list.documents.map(d => {
+    const tr = document.createElement('tr');
+    const cells = [d.name, d.folder, d.kb + ' KB', d.modified];
+    for (const [i, v] of cells.entries()) {
+      const td = document.createElement('td'); td.textContent = v;
+      if (!i) td.className = 'name';
+      tr.append(td);
+    }
+    const n = document.createElement('td'), b = document.createElement('span');
+    b.className = 'badge' + (d.chunks ? '' : ' new'); b.textContent = d.chunks || 'yeni';
+    n.append(b);
+    const act = document.createElement('td'), del = document.createElement('button');
+    del.className = 'danger'; del.textContent = 'Sil';
+    del.onclick = () => remove(d.name);
+    act.append(del);
+    tr.append(n, act);
+    return tr;
+  }));
+}
+
+const refresh = async () => render(await api('sources'));
+
+async function upload(files) {
+  for (const f of files) {
+    say(`${f.name} yükleniyor…`);
+    try {
+      const r = await api('upload?name=' + encodeURIComponent(f.name), { method: 'POST', body: f });
+      say(`${r.saved} ${r.replaced ? 'güncellendi' : 'eklendi'}; indeksleniyor.`, 'ok');
+    } catch (e) { say(`${f.name}: ${e.message}`, 'err'); return; }
+  }
+  await refresh(); watch();
+}
+
+async function remove(name) {
+  if (!confirm(`"${name}" silinsin mi? Dosya diskten silinir.`)) return;
+  try { await api('sources/' + encodeURIComponent(name), { method: 'DELETE' });
+        say(`${name} silindi; indeks güncelleniyor.`, 'ok'); await refresh(); watch(); }
+  catch (e) { say(e.message, 'err'); }
+}
+
+$('enter').onclick = () => { token = $('token').value.trim(); enter(); };
+$('token').onkeydown = e => { if (e.key === 'Enter') $('enter').click(); };
+$('pick').onclick = () => $('file').click();
+$('file').onchange = () => { upload([...$('file').files]); $('file').value = ''; };
+const drop = $('drop');
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); upload([...e.dataTransfer.files]); };
+
+$('addUrl').onclick = async () => {
+  const url = $('url').value.trim();
+  if (!url) return;
+  $('addUrl').disabled = true; say('Sayfa indiriliyor…');
+  try { const r = await api('url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+        say(`${r.saved} eklendi (${r.paragraphs} paragraf); indeksleniyor.`, 'ok');
+        $('url').value = ''; await refresh(); watch(); }
+  catch (e) { say(e.message, 'err'); }
+  $('addUrl').disabled = false;
+};
+
+$('reindex').onclick = async () => {
+  try { await api('reindex', { method: 'POST' }); say('Bütün belgeler yeniden indeksleniyor.', 'ok'); watch(); }
+  catch (e) { say(e.message, 'err'); }
+};
+
+// ---------- indexing progress ----------
+let watching = false;
+async function watch() {
+  if (watching) return;
+  watching = true;
+  $('progress').classList.remove('hidden');
+  try {
+    for (;;) {
+      const st = await api('status');
+      if (st.state === 'running') { $('step').textContent = 'İndeksleniyor · ' + (st.step || 'hazırlanıyor'); }
+      else {
+        if (st.state === 'done') say(`İndeks hazır: ${st.result.documents} belge, ${st.result.chunks} parça (${st.seconds} sn).`, 'ok');
+        if (st.state === 'error') say('İndeksleme başarısız: ' + st.error, 'err');
+        showSuggestions(st.suggestions || {});
+        await refresh();
+        break;
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  } catch (e) { say(e.message, 'err'); }
+  $('progress').classList.add('hidden');
+  watching = false;
+}
+
+// ---------- topics ----------
+let topics = { configured: [], confirmed: [] };
+const chip = (text, cls, onclick, removable) => {
+  const el = document.createElement('span');
+  el.className = 'chip ' + cls; el.textContent = text;
+  if (removable) { const x = document.createElement('button'); x.textContent = '×'; x.title = 'Kaldır'; x.onclick = onclick; el.append(x); }
+  else if (onclick) { el.onclick = onclick; el.title = 'Ekle'; }
+  return el;
+};
+function renderTopics() {
+  $('configured').replaceChildren(...topics.configured.map(t => chip(t, 'fixed')));
+  $('confirmed').replaceChildren(...(topics.confirmed.length ? topics.confirmed.map(t =>
+    chip(t, '', () => saveTopics(topics.confirmed.filter(x => x !== t)), true))
+    : [Object.assign(document.createElement('span'), { className: 'muted', textContent: 'Henüz yok.' })]));
+}
+function showSuggestions(byDoc) {
+  const known = new Set([...topics.configured, ...topics.confirmed].map(t => t.toLowerCase()));
+  const names = [...new Set(Object.values(byDoc).flat())].filter(t => !known.has(t.toLowerCase()));
+  if (!names.length) return;
+  $('suggested').replaceChildren(...names.map(t => chip('+ ' + t, 'suggest', e => {
+    e.currentTarget.remove(); saveTopics([...topics.confirmed, t]);
+  })));
+}
+async function saveTopics(list) {
+  try { const r = await api('topics', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ confirmed: list }) });
+        topics.confirmed = r.confirmed; renderTopics(); }
+  catch (e) { say(e.message, 'err'); }
+}
+$('addTopic').onclick = () => { const t = $('newTopic').value.trim(); if (t) { saveTopics([...topics.confirmed, t]); $('newTopic').value = ''; } };
+$('newTopic').onkeydown = e => { if (e.key === 'Enter') $('addTopic').click(); };
+
+if (token) enter();
+</script>
+</body>
+</html>

@@ -29,23 +29,40 @@ class TopicTracker:
             for name in self.topics
         ]
         self.current: str | None = None
+        self.question_named = False  # the last question named a topic itself
+
+    def find_all(self, text: str) -> list[str]:
+        """Every known name in the text, longest names first."""
+        folded = _fold(text)
+        return [name for name, pattern in self.patterns if pattern.search(folded)]
 
     def find(self, text: str) -> str | None:
         """The first known name in the text, or None."""
-        folded = _fold(text)
-        for name, pattern in self.patterns:
-            if pattern.search(folded):
-                return name
-        return None
+        names = self.find_all(text)
+        return names[0] if names else None
 
     def contextualize(self, question: str) -> str:
         """The question to search and answer with: unchanged if it names a topic
         itself (and that becomes the current topic), otherwise prefixed with the
         current topic."""
-        if named := self.find(question):
+        named = self.find(question)
+        self.question_named = named is not None
+        if named:
             self.current = named
             return question
         return f"{self.current}: {question}" if self.current else question
 
+    def observe_answer(self, answer: str) -> None:
+        """A question that names nothing is answered with a name ("En hızlı robot
+        hangisi?" -> "AKINCI-5 ..."): the next follow-up ("Ne kadar hızlı?") refers
+        to that name. Only when the answer names exactly one topic; a name the
+        user said in the question always takes precedence."""
+        if self.question_named:
+            return
+        names = self.find_all(answer)
+        if len(names) == 1:
+            self.current = names[0]
+
     def reset(self) -> None:
         self.current = None
+        self.question_named = False

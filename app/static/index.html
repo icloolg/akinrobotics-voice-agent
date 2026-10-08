@@ -3,8 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AKINROBOTICS Sesli Ajan</title>
-<link rel="icon" href="data:,">
+<title>AkınVoice</title>
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <!--
   Browser client for the voice agent. No build step, no libraries.
     mic (AudioWorklet, resampled to 16 kHz int16) -> WebSocket /ws
@@ -14,109 +16,257 @@
   Protocol: see app/main.py.
 -->
 <style>
+  /* Visual language follows akinsoft.com.tr: Inter, near-black text, navy
+     buttons, brand-blue headings, a soft blue/lilac backdrop and white cards.
+     Without internet (Docker offline) the font falls back to the system font. */
   :root {
-    --bg: #f6f7f9; --panel: #ffffff; --ink: #16202b; --muted: #64707d; --line: #dfe3e8;
-    --accent: #0b6bcb; --accent-ink: #ffffff; --user: #e8f1fb; --ok: #1f9d57; --warn: #c9372c;
+    --bg: #f5f5f7; --panel: #ffffff; --ink: #161618; --muted: #6e6e73; --line: #e5e7ec;
+    --brand: #0d4f9c; --navy: #0b1f3a; --navy-ink: #ffffff; --bubble: #f2f4f8;
+    --ok: #1f9d57; --warn: #d1372c; --shadow: 0 10px 30px rgba(11, 31, 58, .08);
+    --glow-a: #dfe8ff; --glow-b: #efe6ff;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #10151b; --panel: #18202a; --ink: #e6ebf0; --muted: #8f9ba8; --line: #2a3542;
-      --accent: #4ea1f3; --accent-ink: #0b1622; --user: #1d2f44; --ok: #46c683; --warn: #f0776c;
+      --bg: #0d1420; --panel: #141d2b; --ink: #eef2f7; --muted: #94a0b2; --line: #263246;
+      --brand: #6aa8ff; --navy: #e8eef8; --navy-ink: #0b1f3a; --bubble: #1c2738;
+      --ok: #46c683; --warn: #f0776c; --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+      --glow-a: #14264a; --glow-b: #22183f;
     }
   }
   * { box-sizing: border-box; }
-  html, body { height: 100%; }
   body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    display: flex; flex-direction: column; align-items: center;
+    margin: 0; color: var(--ink); background: var(--bg);
+    background-image: radial-gradient(60% 50% at 15% 0%, var(--glow-a), transparent 70%),
+                      radial-gradient(50% 45% at 90% 10%, var(--glow-b), transparent 70%);
+    font: 16px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column;
   }
-  .app { width: 100%; max-width: 760px; height: 100%; display: flex; flex-direction: column; padding: 0 16px; }
-  header { padding: 20px 0 12px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  h1 { font-size: 1.15rem; margin: 0; letter-spacing: .01em; }
-  .status { color: var(--muted); font-size: .9rem; display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+  /* top bar */
+  .topbar { background: color-mix(in srgb, var(--panel) 80%, transparent); backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--line); }
+  .topbar .inner { max-width: 860px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+  .brand img { width: 34px; height: 34px; display: block; }
+  .brand b { font-size: 1.2rem; font-weight: 800; letter-spacing: -.01em; color: var(--brand); }
+  .brand b span { color: var(--navy); }
+  .settings { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+  select { font: inherit; font-size: .8rem; font-weight: 500; color: var(--ink); background: var(--panel);
+           border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; cursor: pointer; }
+
+  /* page */
+  .app { width: 100%; max-width: 860px; margin: 0 auto; flex: 1; min-height: 0;
+         display: flex; flex-direction: column; padding: 0 16px; }
+  .hero { padding: 20px 0 0; display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+  .hero h1 { margin: 0; font-size: clamp(1.4rem, 3.5vw, 2rem); line-height: 1.15; font-weight: 800;
+             letter-spacing: -.02em; color: var(--brand); }
+  .hero p { margin: 4px 0 0; color: var(--muted); font-size: .92rem; }
+  .status { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: .82rem; font-weight: 500;
+            color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 99px;
+            padding: 5px 12px; box-shadow: var(--shadow); }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); flex: none; }
   .dot.listening { background: var(--ok); }
   .dot.hearing { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 30%, transparent); }
-  .dot.thinking { background: var(--accent); animation: pulse 1s infinite; }
-  .dot.speaking { background: var(--accent); }
+  .dot.thinking { background: var(--brand); animation: pulse 1s infinite; }
+  .dot.speaking { background: var(--brand); }
   .dot.error { background: var(--warn); }
   @keyframes pulse { 50% { opacity: .35; } }
 
   #log {
-    flex: 1; overflow-y: auto; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;
+    flex: 1; min-height: 200px; overflow-y: auto; background: var(--panel); border-radius: 20px;
+    box-shadow: var(--shadow); border: 1px solid var(--line);
+    padding: 18px; display: flex; flex-direction: column; gap: 10px;
   }
-  .hint { color: var(--muted); margin: auto; text-align: center; max-width: 34em; }
+  .hint { color: var(--muted); margin: auto; text-align: center; max-width: 34em; position: relative; }
+  /* Before the conversation starts: the AKINSOFT logo as a faint watermark. */
+  #log { position: relative; scrollbar-width: thin; scrollbar-color: var(--brand) transparent; }
+  #log::-webkit-scrollbar { width: 8px; }
+  #log::-webkit-scrollbar-track { background: transparent; margin: 14px 0; }
+  #log::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--brand) 70%, transparent); border-radius: 99px; }
+  #log::-webkit-scrollbar-thumb:hover { background: var(--brand); }
+  #log::-webkit-scrollbar-button { display: none; }
+  #log:has(> #hint)::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .07;
+    background: url("/static/brand/akinsoft-logo.webp") center / min(300px, 60%) no-repeat;
+  }
   .hint b { color: var(--ink); font-weight: 600; }
-  .msg { max-width: 85%; padding: 9px 13px; border-radius: 12px; overflow-wrap: anywhere; }
-  .msg.user { align-self: flex-end; background: var(--user); }
-  .msg.agent { align-self: flex-start; border: 1px solid var(--line); }
+  .msg { max-width: 85%; padding: 10px 14px; border-radius: 16px; overflow-wrap: anywhere; }
+  .msg.user { align-self: flex-end; background: var(--navy); color: var(--navy-ink); border-bottom-right-radius: 4px; }
+  .msg.agent { align-self: flex-start; background: var(--bubble); border-bottom-left-radius: 4px; }
   .msg.cut { opacity: .6; }
-  .msg .lang { font-size: .72rem; color: var(--muted); text-transform: uppercase; margin-right: 6px; }
-  .meta { align-self: flex-start; color: var(--muted); font-size: .78rem; margin: -4px 0 4px 4px;
+  .msg .lang { font-size: .68rem; font-weight: 600; opacity: .7; text-transform: uppercase; margin-right: 6px; }
+  .meta { align-self: flex-start; color: var(--muted); font-size: .76rem; margin: -4px 0 4px 4px;
           font-variant-numeric: tabular-nums; }
   .meta b { color: var(--ink); font-weight: 600; }
 
-  .controls { display: flex; align-items: center; gap: 14px; padding: 14px 0 18px; flex-wrap: wrap; }
+  .controls { display: flex; align-items: center; gap: 14px; padding: 14px 0 16px; flex-wrap: wrap; }
   button {
-    font: inherit; border-radius: 10px; border: 1px solid var(--line); background: var(--panel);
-    color: var(--ink); padding: 10px 16px; cursor: pointer;
+    font: inherit; font-weight: 500; border-radius: 12px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink); padding: 11px 18px; cursor: pointer; transition: transform .1s, box-shadow .2s;
   }
-  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; min-width: 11em; }
-  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  label { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: .9rem; cursor: pointer; }
+  button:hover { box-shadow: var(--shadow); }
+  button:active { transform: translateY(1px); }
+  button.primary { background: var(--navy); border-color: var(--navy); color: var(--navy-ink); font-weight: 600; min-width: 11em; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  label { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: .88rem; cursor: pointer; }
   .meter { flex: 1; min-width: 90px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
   .meter i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .08s linear; }
 
   /* Robot strip: every robot with a picture, scrolling slowly; the ones in the
      last answer light up. The list is in the track twice, so moving the track
      by half its width loops without a jump. Hover pauses it. */
-  .robots { overflow: hidden; padding: 0 0 12px;
+  .robots { overflow: hidden; padding: 20px 0 22px; margin: -6px 0 -8px; position: relative; z-index: 1; flex: none;
             mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
-  .track { display: flex; gap: 6px; width: max-content; animation: slide 28s linear infinite; }
+  .track { display: flex; gap: 8px; width: max-content; animation: slide 28s linear infinite; }
   .robots:hover .track { animation-play-state: paused; }
-  @keyframes slide { to { transform: translateX(calc(-50% - 3px)); } }
+  @keyframes slide { to { transform: translateX(calc(-50% - 4px)); } }
   @media (prefers-reduced-motion: reduce) { .track { animation: none; } .robots { overflow-x: auto; } }
-  .robot { flex: none; width: 78px; text-align: center; font-size: .7rem; color: var(--muted);
-           border: 1px solid transparent; border-radius: 10px; padding: 4px 2px; transition: all .25s; }
-  .robot img { height: 64px; width: 100%; object-fit: contain; display: block; margin: 0 auto 2px; }
-  .robot.active { border-color: var(--accent); color: var(--ink); background: var(--panel);
-                  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent); }
+  .robot { flex: none; width: 84px; text-align: center; font-size: .7rem; font-weight: 500; color: var(--muted);
+           background: color-mix(in srgb, var(--panel) 70%, transparent); border: 1px solid var(--line);
+           border-radius: 14px; padding: 6px 2px 4px; transition: all .25s; }
+  .robot img { height: 60px; width: 100%; object-fit: contain; display: block; margin: 0 auto 2px; }
+  .robot { position: relative; transform-origin: center; }
+  .robot:hover { transform: scale(1.25); z-index: 1; border-color: var(--brand); color: var(--ink);
+                 background: var(--panel); box-shadow: 0 8px 24px color-mix(in srgb, var(--brand) 22%, transparent); }
+  .robot.active { border-color: var(--brand); color: var(--ink); background: var(--panel);
+                  box-shadow: 0 4px 16px color-mix(in srgb, var(--brand) 25%, transparent); }
   /* Pictures of the robots an answer talks about, under that answer. */
   .pics { align-self: flex-start; display: flex; gap: 10px; flex-wrap: wrap; margin: -2px 0 2px 4px; }
-  .pics figure { margin: 0; text-align: center; font-size: .72rem; color: var(--muted); }
+  .pics figure { margin: 0; text-align: center; font-size: .72rem; color: var(--muted);
+                 background: var(--bubble); border-radius: 14px; padding: 8px 10px 4px; }
   .pics img { height: 110px; display: block; margin: 0 auto 2px; }
   .pics.many img { height: 64px; }
-  .credit { color: var(--muted); font-size: .7rem; text-align: center; padding: 0 0 10px; }
+
+  /* The assistant fills the first screen; the footer is below it, as on a website. */
+  .screen { height: 100dvh; display: flex; flex-direction: column; }
+  .toplinks { display: flex; gap: 4px; margin-left: 18px; }
+  .toplinks a { color: var(--muted); font-size: .82rem; font-weight: 500; text-decoration: none;
+                padding: 6px 10px; border-radius: 10px; }
+  .toplinks a:hover { color: var(--ink); background: var(--bubble); }
+
+  .site-footer { background: var(--panel); border-top: 1px solid var(--line); color: var(--muted); font-size: .84rem; }
+  .site-footer .inner { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+  .cols { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 28px; padding: 36px 0 28px; }
+  .cols h4 { margin: 0 0 10px; color: var(--ink); font-size: .74rem; font-weight: 700;
+             text-transform: uppercase; letter-spacing: .04em; }
+  .cols ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+  .cols a { color: var(--muted); text-decoration: none; }
+  .cols a:hover { color: var(--brand); }
+  .about .brand { margin-bottom: 10px; }
+  .about p { margin: 0; max-width: 30em; line-height: 1.6; }
+  .bottom { border-top: 1px solid var(--line); padding: 16px 0 20px; display: flex; gap: 14px 24px;
+            align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: .76rem; }
+  .bottom p { margin: 0; line-height: 1.6; }
+  .social { display: flex; gap: 18px; flex-wrap: wrap; }
+  .social div { display: flex; align-items: center; gap: 6px; }
+  .social span { font-size: .68rem; font-weight: 700; letter-spacing: .04em; color: var(--ink); margin-right: 2px; }
+  .social a { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 50%; display: grid;
+              place-items: center; color: var(--ink); transition: all .2s; }
+  .social a:hover { border-color: var(--brand); color: var(--brand); transform: translateY(-1px); }
+  .social svg { width: 15px; height: 15px; }
+  @media (max-width: 760px) {
+    .cols { grid-template-columns: 1fr 1fr; } .about { grid-column: 1 / -1; } .toplinks { display: none; }
+  }
+  @media (max-width: 560px) {
+    .hero { padding-top: 14px; } .status { margin-left: 0; }
+    button.primary { min-width: 0; flex: 1; }
+    .meter { flex-basis: 100%; }
+  }
 </style>
 </head>
 <body>
-<div class="app">
-  <header>
-    <h1>AKINROBOTICS Sesli Ajan</h1>
-    <div class="status" aria-live="polite"><span class="dot" id="dot"></span><span id="status">Bağlı değil</span></div>
-  </header>
+<div class="screen">
+<div class="topbar">
+  <div class="inner">
+    <a class="brand" href="/"><img src="/static/logo.svg" alt=""><b>Akın<span>Voice</span></b></a>
+    <nav class="toplinks">
+      <a href="https://www.akinrobotics.com" target="_blank" rel="noopener">AKINROBOTICS</a>
+      <a href="https://www.akinsoft.com.tr" target="_blank" rel="noopener">AKINSOFT</a>
+    </nav>
+    <div class="settings">
+      <select id="speechLang" data-i18n-title="speechLangTitle">
+        <option value="auto" data-i18n="langAuto"></option>
+        <option value="tr" data-i18n="langTr"></option>
+        <option value="en" data-i18n="langEn"></option>
+      </select>
+      <select id="uiLang" data-i18n-title="uiLangTitle">
+        <option value="tr">TR</option>
+        <option value="en">EN</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<main class="app">
+  <div class="hero">
+    <div>
+      <h1 data-i18n="headline"></h1>
+      <p data-i18n="tagline"></p>
+    </div>
+    <div class="status" aria-live="polite"><span class="dot" id="dot"></span><span id="status"></span></div>
+  </div>
 
   <div class="robots"><div class="track" id="robots"></div></div>
 
   <div id="log">
     <p class="hint" id="hint">
-      <b>Başlat</b>'a basın ve mikrofona izin verin. Türkçe veya İngilizce konuşun; sustuğunuzda ajan cevap verir.<br>
-      Örnek: "Ada-7 kaç kilogram?" · "Which robot is the fastest?" · "Hangi robot arızalı?"
+      <span data-i18n="hint"></span><br>
+      <span data-i18n="examples"></span>
     </p>
   </div>
 
   <div class="controls">
-    <button class="primary" id="toggle">Başlat</button>
-    <button id="reset" title="Konuşma geçmişini sil">Sıfırla</button>
-    <label title="Açıkken ajan konuşurken araya girebilirsiniz. Hoparlörden yankı olup ajan kendi kendini kesiyorsa kapatın veya kulaklık kullanın.">
-      <input type="checkbox" id="bargein" checked> Söz kesme
+    <button class="primary" id="toggle" data-i18n="start"></button>
+    <button id="reset" data-i18n="reset" data-i18n-title="resetTitle"></button>
+    <label data-i18n-title="bargeinTitle">
+      <input type="checkbox" id="bargein" checked> <span data-i18n="bargein"></span>
     </label>
-    <div class="meter" title="Mikrofon seviyesi"><i id="level"></i></div>
+    <div class="meter" data-i18n-title="micLevel"><i id="level"></i></div>
   </div>
-  <div class="credit">Robot görselleri: akinrobotics.com</div>
+</main>
 </div>
+
+<footer class="site-footer">
+  <div class="inner">
+    <div class="cols">
+      <div class="about">
+        <a class="brand" href="/"><img src="/static/logo.svg" alt=""><b>Akın<span>Voice</span></b></a>
+        <p data-i18n="fAbout"></p>
+      </div>
+      <div>
+        <h4>AKINROBOTICS</h4>
+        <ul>
+          <li><a href="https://www.akinrobotics.com" target="_blank" rel="noopener" data-i18n="fHome"></a></li>
+          <li><a href="https://www.akinrobotics.com/sosyal-robot-ada-7" target="_blank" rel="noopener">Ada-7</a></li>
+          <li><a href="https://www.akinrobotics.com/insansi-robot-akinci-5" target="_blank" rel="noopener">AKINCI-5</a></li>
+          <li><a href="https://www.akinrobotics.com/akinrobotics-operating-system-aros" target="_blank" rel="noopener">AROS</a></li>
+          <li><a href="https://www.akinrobotics.com/hakkimizda" target="_blank" rel="noopener" data-i18n="fAbout2"></a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>AKINSOFT</h4>
+        <ul>
+          <li><a href="https://www.akinsoft.com.tr" target="_blank" rel="noopener" data-i18n="fHome"></a></li>
+          <li><a href="https://www.akinsoft.com.tr/wolvox" target="_blank" rel="noopener">WOLVOX</a></li>
+          <li><a href="https://www.akinsoft.com.tr/e-donusum" target="_blank" rel="noopener" data-i18n="fEdonusum"></a></li>
+          <li><a href="https://www.akinsoft.com.tr/sektorel-cozumler" target="_blank" rel="noopener" data-i18n="fSector"></a></li>
+          <li><a href="https://www.akinsoft.com.tr/as/hakkimizda/" target="_blank" rel="noopener" data-i18n="fAbout2"></a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-i18n="fProject"></h4>
+        <ul>
+          <li><a href="/admin" data-i18n="fAdmin"></a></li>
+          <li><a href="/docs" target="_blank" data-i18n="fApi"></a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="bottom">
+      <p><span data-i18n="fCopy"></span><br><span data-i18n="fCredit"></span></p>
+      <div class="social" id="social"></div>
+    </div>
+  </div>
+</footer>
 
 <script>
 const MIC_RATE = 16000, BLOCK = 512;   // what the server expects: 32 ms blocks of 16 kHz int16
@@ -157,13 +307,14 @@ let agentMsg = null;
 const ROBOTS = [
   { name: 'Mini Ada',              file: 'mini-ada',              re: /mini\s*ada/i },
   { name: 'Ada-7',                 file: 'ada-7',                 re: /ada[\s-]?7/i },
-  { name: 'Servis Robotu V3',      file: 'servis-robotu-v3',      re: /servis robotu v3|service robot v3/i },
-  { name: 'Fabrika Servis Robotu', file: 'fabrika-servis-robotu', re: /fabrika servis|factory service/i },
+  { name: 'Servis Robotu V3',      en: 'Service Robot V3',        file: 'servis-robotu-v3',      re: /servis robotu v3|service robot v3/i },
+  { name: 'Fabrika Servis Robotu', en: 'Factory Service Robot',   file: 'fabrika-servis-robotu', re: /fabrika servis|factory service/i },
   { name: 'AMR',                   file: 'amr-robotu',            re: /\bAMR\b/ },
   { name: 'ARAT',                  file: 'arat',                  re: /\bARAT\b/i },
   { name: 'AKINCI-5',              file: 'akinci-5',              re: /ak[ıi]nc[ıi][\s-]?5/i },
 ];
 const robotSrc = r => '/static/robots/' + r.file + '.webp';
+const robotName = r => (uiLang === 'en' && r.en) || r.name;   // follows the interface language
 
 function buildStrip() {
   for (const copy of [false, true]) {          // second copy: only for the seamless loop
@@ -171,8 +322,9 @@ function buildStrip() {
       const el = document.createElement('div');
       el.className = 'robot'; el.dataset.file = r.file;
       if (copy) el.setAttribute('aria-hidden', 'true');
-      const img = new Image(); img.src = robotSrc(r); img.alt = copy ? '' : r.name;
-      el.append(img, r.name);
+      const img = new Image(); img.src = robotSrc(r);
+      const label = document.createElement('span'); label.className = 'rname';
+      el.append(img, label);
       $('robots').append(el);
     }
   }
@@ -187,14 +339,131 @@ function showRobots(text) {
   const box = add('pics' + (found.length > 2 ? ' many' : ''), '');
   for (const r of found) {
     const fig = document.createElement('figure');
-    const img = new Image(); img.src = robotSrc(r); img.alt = r.name;
+    const img = new Image(); img.src = robotSrc(r); img.alt = robotName(r);
     img.onload = () => { log.scrollTop = log.scrollHeight; };
-    fig.append(img, r.name);
+    fig.append(img, robotName(r));
     box.append(fig);
   }
 }
 
-function setStatus(kind, text) { $('dot').className = 'dot ' + kind; $('status').textContent = text; }
+// ---------- footer: social links (from the footers of akinrobotics.com and akinsoft.com.tr) ----------
+const ICONS = {
+  Facebook: '<path fill="currentColor" d="M13.5 21v-7.5h2.6l.4-3h-3V8.6c0-.9.3-1.5 1.5-1.5h1.6V4.4c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2.2H8v3h2.4V21z"/>',
+  X: '<path fill="currentColor" d="M17.8 3h3l-6.6 7.6L22 21h-6.1l-4.8-6.3L5.6 21h-3l7.1-8.1L2.2 3h6.2l4.4 5.8zm-1.1 16.2h1.7L7.4 4.7H5.6z"/>',
+  LinkedIn: '<path fill="currentColor" d="M4 9h3.3v11H4zm1.7-5.5a1.9 1.9 0 1 1 0 3.8 1.9 1.9 0 0 1 0-3.8zM9.4 9h3.2v1.5c.5-.9 1.6-1.8 3.3-1.8 3.4 0 4.1 2.2 4.1 5.2V20h-3.3v-5.4c0-1.3 0-2.9-1.8-2.9s-2.1 1.4-2.1 2.8V20H9.4z"/>',
+  Instagram: '<g fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></g><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/>',
+  YouTube: '<path fill="currentColor" d="M21.6 7.2a2.5 2.5 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.5 2.5 0 0 0 2.4 7.2C2 8.8 2 12 2 12s0 3.2.4 4.8a2.5 2.5 0 0 0 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8c.4-1.6.4-4.8.4-4.8s0-3.2-.4-4.8zM10 15V9l5.2 3z"/>',
+};
+const SOCIAL = {
+  AKINROBOTICS: { Facebook: 'https://www.facebook.com/akinrobotics', X: 'https://x.com/akinrobotics',
+                  LinkedIn: 'https://www.linkedin.com/in/akinrobotics', Instagram: 'https://www.instagram.com/akinrobotics',
+                  YouTube: 'https://www.youtube.com/akinrobotics' },
+  AKINSOFT:     { Facebook: 'https://www.facebook.com/akinsoft', X: 'https://x.com/akinsoftyazilim',
+                  LinkedIn: 'https://www.linkedin.com/company/akinsoftyazilim', Instagram: 'https://www.instagram.com/akinsoft',
+                  YouTube: 'https://www.youtube.com/akinsoft' },
+};
+function buildSocial() {
+  for (const [company, links] of Object.entries(SOCIAL)) {
+    const group = document.createElement('div');
+    const label = document.createElement('span'); label.textContent = company;
+    group.append(label);
+    for (const [network, url] of Object.entries(links)) {
+      const a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.rel = 'noopener';
+      a.title = `${company} ${network}`; a.setAttribute('aria-label', a.title);
+      a.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[network]}</svg>`;
+      group.append(a);
+    }
+    $('social').append(group);
+  }
+}
+
+// ---------- interface language ----------
+// UI texts in both languages. The speech language (what the user speaks) is a
+// separate choice below: someone can read the page in Turkish and ask in English.
+const YEAR = new Date().getFullYear();
+const TEXT = {
+  tr: {
+    headline: 'Sorun, sesli cevaplasın.',
+    tagline: 'AKINROBOTICS robotları ve AKINSOFT hakkında Türkçe ve İngilizce sesli asistan',
+    hint: 'Merhaba! <b>Başlat</b>\'a basın, mikrofona izin verin ve AKINROBOTICS robotları, AKINSOFT yazılımları '
+        + 'ya da iki şirket hakkında merak ettiklerinizi sorun. Türkçe de olur, İngilizce de; cevaplar şirketlerin kendi kaynaklarından gelir.',
+    examples: 'Ne soracağınızı mı düşünüyorsunuz? “Ada-7 kaç kilogram?” · “AKINSOFT ne zaman kuruldu?” · “Which robot is the fastest?”',
+    start: 'Başlat', stop: 'Durdur', reset: 'Sıfırla', resetTitle: 'Konuşma geçmişini sil',
+    bargein: 'Söz kesme',
+    bargeinTitle: 'Açıkken asistan konuşurken araya girebilirsiniz. Hoparlörden yankı olup asistan kendi kendini kesiyorsa kapatın veya kulaklık kullanın.',
+    micLevel: 'Mikrofon seviyesi', speechLangTitle: 'Konuşma dili', uiLangTitle: 'Arayüz dili', langAuto: 'Konuşma: otomatik', langTr: 'Konuşma: Türkçe', langEn: 'Konuşma: İngilizce',
+    notConnected: 'Bağlı değil', connecting: 'Bağlanıyor', listening: 'Dinliyorum', hearing: 'Sizi duyuyorum',
+    thinking: 'Düşünüyor', speaking: 'Konuşuyor', disconnected: 'Bağlantı kesildi',
+    needHttps: 'Mikrofon için sayfayı http://localhost veya HTTPS üzerinden açın', micDenied: 'Mikrofona erişilemedi:',
+    latency: 'Yanıt gecikmesi', firstToken: 'LLM ilk token', firstSentence: 'ilk cümle+TTS', sec: 'sn',
+    source: 'kaynak', smalltalk: 'sohbet', none: 'yok',
+    fAbout: 'AKINROBOTICS robotları ve AKINSOFT ürünleri hakkındaki soruları Türkçe ve İngilizce, sesli olarak ve kaynağa dayanarak cevaplayan asistan. Yerel ve açık kaynak bileşenlerle çalışır.',
+    fHome: 'Ana sayfa', fAbout2: 'Hakkımızda', fEdonusum: 'e-Dönüşüm', fSector: 'Sektörel çözümler',
+    fProject: 'Proje', fAdmin: 'Yönetim paneli', fApi: 'API dokümantasyonu',
+    fCopy: `© ${YEAR} AkınVoice · AKINROBOTICS Yapay Zeka Yazılım Mühendisi değerlendirme projesi için geliştirilmiştir.`,
+    fCredit: 'Robot görselleri ve içerik © AKINROBOTICS, AKINSOFT; yalnızca tanıtım amacıyla kullanılmıştır.',
+  },
+  en: {
+    headline: 'Ask out loud, get a spoken answer.',
+    tagline: 'Turkish and English voice assistant for AKINROBOTICS robots and AKINSOFT',
+    hint: 'Hi there! Press <b>Start</b>, allow the microphone and ask about AKINROBOTICS robots, AKINSOFT software '
+        + 'or the two companies. Turkish or English, both work; answers come from the companies\' own sources.',
+    examples: 'Not sure where to start? “How heavy is Ada-7?” · “When was AKINSOFT founded?” · “Which robot is the fastest?”',
+    start: 'Start', stop: 'Stop', reset: 'Reset', resetTitle: 'Clear the conversation',
+    bargein: 'Barge-in',
+    bargeinTitle: 'When on, you can interrupt the assistant while it speaks. Turn it off or use headphones if speaker echo makes it interrupt itself.',
+    micLevel: 'Microphone level', speechLangTitle: 'Speech language', uiLangTitle: 'Interface language', langAuto: 'Speech: auto', langTr: 'Speech: Turkish', langEn: 'Speech: English',
+    notConnected: 'Not connected', connecting: 'Connecting', listening: 'Listening', hearing: 'Hearing you',
+    thinking: 'Thinking', speaking: 'Speaking', disconnected: 'Connection lost',
+    needHttps: 'Open the page via http://localhost or HTTPS to use the microphone', micDenied: 'Microphone not available:',
+    latency: 'Response latency', firstToken: 'LLM first token', firstSentence: 'first sentence+TTS', sec: 's',
+    source: 'source', smalltalk: 'small talk', none: 'none',
+    fAbout: 'A voice assistant that answers questions about AKINROBOTICS robots and AKINSOFT products in Turkish and English, grounded in sources. Runs on local, open-source components.',
+    fHome: 'Home', fAbout2: 'About', fEdonusum: 'e-Transformation', fSector: 'Industry solutions',
+    fProject: 'Project', fAdmin: 'Admin panel', fApi: 'API documentation',
+    fCopy: `© ${YEAR} AkınVoice · Developed for the AKINROBOTICS AI Software Engineer assessment.`,
+    fCredit: 'Robot images and content © AKINROBOTICS, AKINSOFT; used for demonstration only.',
+  },
+};
+
+const store = {   // remembered choices; storage can be blocked (private window), so never fail on it
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+let uiLang = store.get('akinvoice.ui', navigator.language?.startsWith('tr') === false ? 'en' : 'tr');
+if (!TEXT[uiLang]) uiLang = 'tr';
+let statusKey = 'notConnected', statusExtra = '';
+const t = key => TEXT[uiLang][key] ?? key;
+
+function applyLanguage() {
+  document.documentElement.lang = uiLang;
+  for (const el of document.querySelectorAll('[data-i18n]')) {
+    const v = t(el.dataset.i18n);
+    if (v.includes('<')) el.innerHTML = v; else el.textContent = v;
+  }
+  for (const el of document.querySelectorAll('[data-i18n-html]')) el.innerHTML = t(el.dataset.i18nHtml);
+  for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
+  for (const el of document.querySelectorAll('.robot')) {
+    const r = ROBOTS.find(r => r.file === el.dataset.file);
+    el.querySelector('.rname').textContent = robotName(r);
+    if (!el.hasAttribute('aria-hidden')) el.querySelector('img').alt = robotName(r);
+  }
+  $('status').textContent = t(statusKey) + (statusExtra ? ' ' + statusExtra : '');
+}
+
+// The status is stored as a key, so switching the interface language re-translates it.
+function setStatus(kind, key, extra = '') {
+  $('dot').className = 'dot ' + kind; statusKey = key; statusExtra = extra;
+  $('status').textContent = t(key) + (extra ? ' ' + extra : '');
+}
+
+// Speech language: 'auto' lets Whisper detect it; tr/en skip detection
+// (short English questions were otherwise heard as Turkish).
+function sendSpeechLanguage() {
+  const v = $('speechLang').value;
+  if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'language', value: v === 'auto' ? null : v }));
+}
 
 function add(cls, text) {
   $('hint')?.remove();
@@ -216,8 +485,8 @@ function play(buffer) {
   nextTime = Math.max(nextTime, ctx.currentTime + 0.03);
   src.start(nextTime); nextTime += audio.duration;
   playing.add(src);
-  src.onended = () => { playing.delete(src); if (!playing.size && !answering && ws) setStatus('listening', 'Dinliyorum'); };
-  setStatus('speaking', 'Konuşuyor');
+  src.onended = () => { playing.delete(src); if (!playing.size && !answering && ws) setStatus('listening', 'listening'); };
+  setStatus('speaking', 'speaking');
 }
 function stopPlayback() {
   const was = playing.size > 0;
@@ -233,16 +502,16 @@ function onEvent(e) {
     case 'hello':
       outRate = e.sample_rate;
       if (e.barge_in === false) { $('bargein').checked = false; $('bargein').disabled = true; }
-      setStatus('listening', 'Dinliyorum');
+      setStatus('listening', 'listening');
       break;
     case 'speech_start':                 // the server heard the user: be quiet
       if ((stopPlayback() || answering) && agentMsg) agentMsg.classList.add('cut');
       answering = false; agentMsg = null;
-      setStatus('hearing', 'Sizi duyuyorum');
+      setStatus('hearing', 'hearing');
       break;
     case 'end_of_speech':
       answering = true; agentMsg = null;
-      setStatus('thinking', 'Düşünüyor');
+      setStatus('thinking', 'thinking');
       break;
     case 'transcript': {
       const el = add('msg user', e.text);
@@ -258,19 +527,19 @@ function onEvent(e) {
     case 'done': {
       answering = false;
       if (agentMsg) showRobots(agentMsg.textContent);
-      const m = e.metrics, ms = m.ms, sec = v => (v / 1000).toFixed(1) + ' sn';
+      const m = e.metrics, ms = m.ms, sec = v => (v / 1000).toFixed(1) + ' ' + t('sec');
       const el = add('meta', '');
       const total = document.createElement('b');
-      total.textContent = 'Yanıt gecikmesi ' + sec(m.response_ms ?? ms.first_audio);
-      el.append(total, ` · STT ${sec(ms.stt_done)} · LLM ilk token ${sec(ms.llm_first_token - ms.stt_done)}`
-        + ` · ilk cümle+TTS ${sec(ms.first_audio - ms.llm_first_token)}`
-        + ` · kaynak: ${m.sources.length ? m.sources.join(', ') : (m.route === 'chitchat' ? 'sohbet' : 'yok')}`);
-      if (!isPlaying()) setStatus('listening', 'Dinliyorum');
+      total.textContent = t('latency') + ' ' + sec(m.response_ms ?? ms.first_audio);
+      el.append(total, ` · STT ${sec(ms.stt_done)} · ${t('firstToken')} ${sec(ms.llm_first_token - ms.stt_done)}`
+        + ` · ${t('firstSentence')} ${sec(ms.first_audio - ms.llm_first_token)}`
+        + ` · ${t('source')}: ${m.sources.length ? m.sources.join(', ') : (m.route === 'chitchat' ? t('smalltalk') : t('none'))}`);
+      if (!isPlaying()) setStatus('listening', 'listening');
       break;
     }
     case 'empty':
       answering = false;
-      if (!isPlaying()) setStatus('listening', 'Dinliyorum');
+      if (!isPlaying()) setStatus('listening', 'listening');
       break;
   }
 }
@@ -278,14 +547,14 @@ function onEvent(e) {
 // ---------- start / stop ----------
 async function start() {
   if (!navigator.mediaDevices?.getUserMedia) {
-    setStatus('error', 'Mikrofon için sayfayı http://localhost veya HTTPS üzerinden açın');
+    setStatus('error', 'needHttps');
     return;
   }
   try {
     micStream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
   } catch (err) {
-    setStatus('error', 'Mikrofona erişilemedi: ' + err.message);
+    setStatus('error', 'micDenied', err.message);
     return;
   }
   ctx = new AudioContext();
@@ -295,9 +564,10 @@ async function start() {
 
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
   ws.binaryType = 'arraybuffer';
-  setStatus('thinking', 'Bağlanıyor');
+  ws.onopen = sendSpeechLanguage;
+  setStatus('thinking', 'connecting');
   ws.onmessage = ev => typeof ev.data === 'string' ? onEvent(JSON.parse(ev.data)) : play(ev.data);
-  ws.onclose = () => { if (ws) { stop(); setStatus('error', 'Bağlantı kesildi'); } };
+  ws.onclose = () => { if (ws) { stop(); setStatus('error', 'disconnected'); } };
 
   micNode.port.onmessage = ev => {
     const pcm = new Int16Array(ev.data);
@@ -308,7 +578,7 @@ async function start() {
     const hold = !$('bargein').checked && (answering || isPlaying());
     if (ws?.readyState === WebSocket.OPEN && !hold) ws.send(ev.data);
   };
-  $('toggle').textContent = 'Durdur';
+  $('toggle').dataset.i18n = 'stop'; applyLanguage();
 }
 
 function stop() {
@@ -319,11 +589,17 @@ function stop() {
   ctx?.close();
   ctx = micStream = micNode = null; answering = false; agentMsg = null;
   $('level').style.width = '0';
-  $('toggle').textContent = 'Başlat';
-  setStatus('', 'Bağlı değil');
+  $('toggle').dataset.i18n = 'start'; applyLanguage();
+  setStatus('', 'notConnected');
 }
 
 buildStrip();
+buildSocial();
+$('uiLang').value = uiLang;
+$('speechLang').value = store.get('akinvoice.speech', 'auto');
+applyLanguage();
+$('uiLang').onchange = () => { uiLang = $('uiLang').value; store.set('akinvoice.ui', uiLang); applyLanguage(); };
+$('speechLang').onchange = () => { store.set('akinvoice.speech', $('speechLang').value); sendSpeechLanguage(); };
 $('toggle').onclick = () => ws ? stop() : start();
 $('reset').onclick = () => {
   if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'reset' }));

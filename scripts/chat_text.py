@@ -1,4 +1,4 @@
-"""Day-1 test: talk to the agent by typing (no audio yet).
+"""Talk to the agent by typing (no audio): for debugging answers and routing.
 
     python -m scripts.chat_text
 Language is guessed from the text here; in the voice pipeline Whisper detects it.

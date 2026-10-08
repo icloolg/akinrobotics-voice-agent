@@ -37,7 +37,7 @@ class FakeVadModel:
 
 
 class FakeSTT:
-    def transcribe(self, audio):
+    def transcribe(self, audio, language=None):
         time.sleep(0.05)
         return Transcript("Ada-7 kaç kilogram?", "tr", len(audio) / SAMPLE_RATE, 0.05)
 
@@ -57,6 +57,7 @@ class FakeLLM:
 class FakeAgent:
     """Answers in `sentences` sentences, one every `delay` seconds."""
     sentences, delay = 2, 0.02
+    retriever = None  # only handed to the (unused) background indexer
 
     def __init__(self):
         self.llm = FakeLLM()

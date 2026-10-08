@@ -52,3 +52,27 @@ def test_datetime_answers_in_the_question_language():
     tool = DateTimeTool(utc_offset_hours=3)
     assert tool.run("Saat kaç?", "tr").startswith("Şu anki saat")
     assert tool.run("What time is it?", "en").startswith("The current time is")
+
+
+def test_topic_follows_the_answer_when_the_question_names_nothing():
+    from app.agent.topics import TopicTracker
+    t = TopicTracker(["Ada-7", "AKINCI-5", "ARAT"])
+    t.contextualize("Ada-7'nin boyu kaç?")
+    t.observe_answer("Ada-7'nin boyu 166 santimetredir.")
+    assert t.contextualize("En hızlı robot hangisi?") == "Ada-7: En hızlı robot hangisi?"
+    t.observe_answer("AKINCI-5 en hızlı robottur.")
+    assert t.contextualize("Ne kadar hızlı?") == "AKINCI-5: Ne kadar hızlı?"
+    t.observe_answer("ARAT ve AKINCI-5 hızlıdır.")      # two names: ambiguous, topic kept
+    assert t.current == "AKINCI-5"
+    t.contextualize("ARAT kaç kilo?")                   # a name in the question wins
+    t.observe_answer("AKINCI-5'ten hafiftir.")
+    assert t.current == "ARAT"
+
+
+def test_remarks_are_not_requests():
+    from app.agent.router import is_request
+    for remark in ["Süper!", "Tamam.", "Bravo!", "Çok güzel.", "Nice."]:
+        assert not is_request(remark), remark
+    for request in ["Kaç saat çalışır?", "Birkaç saat çalışır.", "Ne kadar hızlı.", "AKINCI-5 yüzer mi",
+                    "Bana robotlarınızı anlat", "AKINSOFT hakkında bilgi ver", "how fast is it"]:
+        assert is_request(request), request

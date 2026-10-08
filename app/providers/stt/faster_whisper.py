@@ -11,6 +11,12 @@ from app.providers.base import SAMPLE_RATE, STTProvider, Transcript
 
 log = logging.getLogger(__name__)
 
+# Lower-case fragments of subtitle/credit lines Whisper produces for silence or noise.
+HALLUCINATIONS = (
+    "izlediğiniz için teşekkür", "abone olmayı unutmayın", "abone ol", "altyazı",
+    "thanks for watching", "thank you for watching", "subscribe to", "subtitles by",
+)
+
 
 def _add_cuda_dlls() -> None:
     """On Windows, make the pip-installed CUDA libraries (nvidia-cublas/cudnn) findable."""
@@ -45,20 +51,25 @@ class FasterWhisperSTT(STTProvider):
         self.switch_ratio = switch_ratio
         log.info("Whisper loaded: %s (%s, %s)", model, device, compute_type)
 
-    def transcribe(self, audio: np.ndarray) -> Transcript:
+    def transcribe(self, audio: np.ndarray, language: str | None = None) -> Transcript:
         start = time.perf_counter()
 
-        # language=None -> Whisper detects the language in the same pass (no extra cost).
-        segments, info = self._run(audio, language=None)
-        language = self._choose_language(dict(info.all_language_probs))
-        if language != info.language:
-            log.info("Detected '%s' (%.2f) -> using '%s'", info.language, info.language_probability, language)
+        if language:
+            # Chosen by the user on the page: no guessing. Short English questions
+            # were detected as Turkish and translated ("What time is it?" -> "Ne zaman bu?").
             segments, _ = self._run(audio, language=language)
+        else:
+            # language=None -> Whisper detects the language in the same pass (no extra cost).
+            segments, info = self._run(audio, language=None)
+            language = self._choose_language(dict(info.all_language_probs))
+            if language != info.language:
+                log.info("Detected '%s' (%.2f) -> using '%s'", info.language, info.language_probability, language)
+                segments, _ = self._run(audio, language=language)
 
         # segments is a lazy generator: the actual decoding happens here.
-        text = " ".join(s.text.strip() for s in segments).strip()
-        if self._is_prompt_echo(text):
-            log.info("Dropped prompt echo: %r", text)
+        text = " ".join(s.text.strip() for s in segments if not self._is_silence(s)).strip()
+        if self._is_prompt_echo(text) or self._is_known_hallucination(text):
+            log.info("Dropped hallucinated transcript: %r", text)
             text = ""
 
         return Transcript(
@@ -68,13 +79,26 @@ class FasterWhisperSTT(STTProvider):
             processing_seconds=time.perf_counter() - start,
         )
 
+    @staticmethod
+    def _is_silence(segment) -> bool:
+        """Whisper's own no-speech rule (the defaults of openai-whisper's
+        transcribe): the model thinks there is no speech AND is unsure of the
+        text. A breath or click that passed the VAD otherwise becomes words."""
+        return segment.no_speech_prob > 0.6 and segment.avg_logprob < -1.0
+
+    @staticmethod
+    def _is_known_hallucination(text: str) -> bool:
+        """Subtitle credits Whisper learned from video data and writes for
+        non-speech audio (a documented Whisper failure mode), e.g. "Bu videoyu
+        izlediğiniz için teşekkürler." No user asks these to a robot assistant."""
+        folded = text.lower()
+        return any(p in folded for p in HALLUCINATIONS)
+
     def _is_prompt_echo(self, text: str) -> bool:
-        """Whisper, given unclear audio (noise, echo, a breath), sometimes writes out
-        its hotwords prompt instead of speech. Seen in a live test: the user said
-        nothing and the transcript was "AKINCI-5, ARAT, ARAT, AKINCI-5, AMR ve AROS
-        hakkında sorular." If every word of a 3+ word transcript is a
-        hotword-prompt word, it is not a real question. (A short reply like
-        "ARAT" or "Mini Ada" is kept: it can be a real follow-up answer.)"""
+        """Given unclear audio (noise, echo, a breath), Whisper sometimes writes out
+        its hotwords prompt instead of speech ("AKINCI-5, ARAT, AMR ve AROS
+        hakkında sorular."). A transcript of 3+ words made only of prompt words
+        is discarded; a short reply such as "ARAT" is kept (a valid follow-up)."""
         if not self.hotwords or not text:
             return False
         words = lambda s: re.sub(r"[^\w\s-]", " ", s.lower()).split()
