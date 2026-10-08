@@ -9,7 +9,7 @@ import time
 
 from fastapi import APIRouter
 
-router = APIRouter()
+router = APIRouter(tags=["Örnek filo API'si"])
 
 FLEET = [
     # name, location, status, battery at minute 0, % change per minute
@@ -21,8 +21,9 @@ FLEET = [
 ]
 
 
-@router.get("/mock/robots")
+@router.get("/mock/robots", summary="Robotların anlık durumu")
 def robots():
+    """Pil yüzdesi, görev durumu ve konum; pil değerleri zamanla değişir."""
     minute = (time.time() / 60) % 120  # repeats every 2 hours
     out = []
     for name, location, status, start, rate in FLEET:

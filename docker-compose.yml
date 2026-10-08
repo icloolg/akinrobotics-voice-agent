@@ -46,6 +46,7 @@ services:
       STT_DEVICE: cpu
       STT_COMPUTE_TYPE: int8
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}         # set it to turn on /admin (knowledge sources panel)
+      DOCS_ENABLED: ${DOCS_ENABLED:-1}      # 0 = no Swagger UI (/docs) in production
     volumes:
       - ./config.yaml:/app/config.yaml:ro   # change thresholds etc. without rebuilding
       - ./knowledge:/app/knowledge          # documents; add via /admin or here + python -m scripts.ingest

@@ -31,7 +31,7 @@ ADMIN_PAGE = Path(__file__).parent / "static" / "admin.html"
 
 
 def create_router(cfg: dict, state: dict) -> APIRouter:
-    router = APIRouter()
+    router = APIRouter(tags=["Yönetim"])
     target = Path(cfg["rag"]["knowledge_dir"])  # new documents are stored here
     topics = TopicStore()
 
@@ -58,7 +58,7 @@ def create_router(cfg: dict, state: dict) -> APIRouter:
     def page():
         return FileResponse(ADMIN_PAGE)
 
-    @router.get("/admin/api/sources")
+    @router.get("/admin/api/sources", summary="Belgeleri ve parça sayılarını listele")
     async def sources(x_admin_token: str | None = Header(None)):
         check(x_admin_token)
         chunks = await asyncio.to_thread(indexer().retriever.chunk_counts)
@@ -72,7 +72,7 @@ def create_router(cfg: dict, state: dict) -> APIRouter:
         return {"documents": docs, "total_chunks": sum(chunks.values()),
                 "folders": [d.as_posix() for d in knowledge_dirs(cfg)]}
 
-    @router.post("/admin/api/upload")
+    @router.post("/admin/api/upload", summary="Belge yükle (.md, .txt, .pdf; gövde = dosya)")
     async def upload(request: Request, name: str, x_admin_token: str | None = Header(None)):
         # The file is the raw request body (fetch(url, {body: file})): no multipart parser needed.
         check(x_admin_token)
@@ -95,7 +95,7 @@ def create_router(cfg: dict, state: dict) -> APIRouter:
         indexer().request()
         return {"saved": path.name, "replaced": replaced}
 
-    @router.post("/admin/api/url")
+    @router.post("/admin/api/url", summary="Web sayfasını belge olarak ekle")
     async def add_url(data: dict, x_admin_token: str | None = Header(None)):
         check(x_admin_token)
         from app.knowledge.web import fetch_page, slug
@@ -116,7 +116,7 @@ def create_router(cfg: dict, state: dict) -> APIRouter:
         return {"saved": path.name, "paragraphs": paragraphs}
 
     # Endpoints that start indexing are async: Indexer.request() needs the event loop.
-    @router.delete("/admin/api/sources/{name}")
+    @router.delete("/admin/api/sources/{name}", summary="Belgeyi sil")
     async def delete(name: str, x_admin_token: str | None = Header(None)):
         check(x_admin_token)
         path = document(name)
@@ -124,23 +124,23 @@ def create_router(cfg: dict, state: dict) -> APIRouter:
         indexer().request()
         return {"deleted": path.name}
 
-    @router.post("/admin/api/reindex")
+    @router.post("/admin/api/reindex", summary="Bütün belgeleri yeniden indeksle")
     async def reindex(x_admin_token: str | None = Header(None)):
         check(x_admin_token)
         indexer().request()
         return {"started": True}
 
-    @router.get("/admin/api/status")
+    @router.get("/admin/api/status", summary="İndeksleme durumu, ilerleme ve konu önerileri")
     def status(x_admin_token: str | None = Header(None)):
         check(x_admin_token)
         return vars(indexer().status)
 
-    @router.get("/admin/api/topics")
+    @router.get("/admin/api/topics", summary="Konu adlarını getir")
     def get_topics(x_admin_token: str | None = Header(None)):
         check(x_admin_token)
         return {"configured": cfg.get("followup", {}).get("topics", []), "confirmed": topics.load()}
 
-    @router.put("/admin/api/topics")
+    @router.put("/admin/api/topics", summary="Onaylanan konu adlarını kaydet")
     def put_topics(data: dict, x_admin_token: str | None = Header(None)):
         check(x_admin_token)
         names = [str(n)[:60] for n in data.get("confirmed", []) if str(n).strip()]
@@ -149,7 +149,7 @@ def create_router(cfg: dict, state: dict) -> APIRouter:
             state["agent"].set_topics(active_topics(cfg, topics))
         return {"confirmed": topics.load()}
 
-    @router.get("/admin/api/components")
+    @router.get("/admin/api/components", summary="Etkin bileşenler (STT, LLM, TTS, arama, araçlar)")
     def components(x_admin_token: str | None = Header(None)):
         check(x_admin_token)
         stt, llm, tts, rag = cfg["stt"], cfg["llm"], cfg["tts"], cfg["rag"]

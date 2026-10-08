@@ -21,6 +21,7 @@ it is playing (client/voice_client.py does this); then nothing is interrupted.
 import asyncio
 import json
 import logging
+import os
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -63,19 +64,52 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="AkınVoice", lifespan=lifespan)
+API_DESCRIPTION = """
+Sesli asistan sunucusu. Tarayıcı istemcisi: [`/`](/) · Yönetim paneli: [`/admin`](/admin)
+
+### Sesli konuşma: WebSocket `/ws`
+
+WebSocket uç noktaları Swagger'da listelenmez; protokol:
+
+| Yön | Tür | İçerik |
+|---|---|---|
+| istemci → sunucu | binary | int16 PCM, 16 kHz mono mikrofon sesi (kesintisiz) |
+| istemci → sunucu | text | `{"type": "language", "value": "auto" \\| "tr" \\| "en"}` konuşma dili · `{"type": "reset"}` sohbeti sıfırla |
+| sunucu → istemci | text | JSON olaylar: `hello`, `speech_start`, `end_of_speech`, `transcript`, `sentence`, `empty`, `done` (gecikme ölçümleriyle) |
+| sunucu → istemci | binary | cevap sesi, int16 PCM (`hello.sample_rate`), cümle cümle |
+
+Kullanıcı cevap sırasında konuşursa (söz kesme) sunucu `speech_start` gönderir ve süren cevabı durdurur.
+
+### Yönetim uç noktaları
+
+`X-Admin-Token` başlığı gerekir (sunucuda `ADMIN_TOKEN` ortam değişkeni); tanımlı değilse yönetim kapalıdır.
+"""
+
+TAGS = [
+    {"name": "Yönetim", "description": "Bilgi kaynakları, arka planda indeksleme, konu adları (`X-Admin-Token` gerekir)."},
+    {"name": "Sistem", "description": "Sağlık kontrolü."},
+    {"name": "Örnek filo API'si", "description": "Canlı robot durumu aracının kullandığı örnek servis; gerçek kullanımda filo yönetim sistemi."},
+]
+
+# Swagger UI is on by default (useful for review); DOCS_ENABLED=0 turns it off in production.
+DOCS = os.getenv("DOCS_ENABLED", "1") != "0"
+
+app = FastAPI(title="AkınVoice API", version="1.0.0", description=API_DESCRIPTION, openapi_tags=TAGS,
+              docs_url="/docs" if DOCS else None, redoc_url=None,
+              openapi_url="/openapi.json" if DOCS else None, lifespan=lifespan)
 app.include_router(mock_robot_api)  # demo data source for the robot_status tool
 app.include_router(admin_router(cfg, state))  # /admin: knowledge sources (needs ADMIN_TOKEN)
 app.mount("/static", StaticFiles(directory=WEB_CLIENT.parent), name="static")  # robot images
 
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 def web_client():
     return FileResponse(WEB_CLIENT)
 
 
-@app.get("/health")
+@app.get("/health", tags=["Sistem"], summary="Sunucu hazır mı?")
 def health():
+    """`ok`: modeller yüklendi ve ısıtıldı; `loading`: açılış sürüyor."""
     return {"status": "ok" if "agent" in state else "loading"}
 
 

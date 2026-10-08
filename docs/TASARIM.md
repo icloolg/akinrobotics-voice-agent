@@ -148,6 +148,7 @@ Bu yüzden sitelerden indirilen sayfalar (`knowledge_web/`, `python -m scripts.f
   - Ekleme ve silme arka planda yeniden indekslemeyi kendiliğinden başlatır. Okuma, OCR ve embedding kilitsiz çalışır, asistan önceki indeksle cevap vermeye devam eder; yalnızca indeks değişimi (~1 sn) kilit altındadır. Panel ilerlemeyi gösterir ("OCR 12/20"). OCR sonucu önbelleğe alınır.
   - **Konu adları:** yeni belgelerdeki aday adlar önerilir, doğru olanlar tek tıkla eklenir (`data/topics.json`) ve yeniden başlatmadan geçerli olur. Tam otomatik çıkarma ölçüldü: önerilerin ~%40'ı gürültüydü ("Durum", "QR"). Gürültülü bir ad sonraki soruları sessizce bozacağı için son karar insandadır.
   - Etkin bileşenler (STT, LLM, TTS, embedding, arama, doğrulama, araçlar) görüntülenir.
+- **API dokümantasyonu:** Swagger UI `/docs` adresindedir; uç noktalar Yönetim, Sistem ve Örnek filo API'si olarak gruplanmıştır, WebSocket protokolü sayfanın başında anlatılır. Üretimde `DOCS_ENABLED=0` ile kapatılır.
 - **Yeni bilgi kaynağı (panelsiz):** `knowledge/` klasörüne dosya, ardından `python -m scripts.ingest`. Kaynakta yeni özel adlar varsa `stt.hotwords` cümlesine de eklenmelidir. Ardından `tests/agent_questions.csv`'ye birkaç soru eklenip `python -m scripts.eval_agent` ile eski soruların bozulmadığı kontrol edilir.
 
 ## Testler ve ölçüm betikleri
