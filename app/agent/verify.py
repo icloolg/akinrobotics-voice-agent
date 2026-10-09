@@ -35,7 +35,7 @@ MAX_TOKENS = 512  # the model's input limit (context + sentence)
 # Letters of scripts other than Latin (CJK, Cyrillic, Greek, Arabic, Hebrew, Hangul...).
 # Qwen sometimes drifts into Chinese ("AKINCI-5机器人是最快的。"); the multilingual NLI
 # model accepts such a sentence because its meaning is right, and the TTS cannot say it.
-_FOREIGN_SCRIPT = re.compile(r"[^\W\d_a-zA-ZçğıöşüÇĞİÖŞÜâîûÂÎÛéèêëàáäôóòñ]")
+_FOREIGN_SCRIPT = re.compile("[^\\W\\d_a-zA-ZçğıöşüÇĞİÖŞÜ\u00e2\u00ee\u00fb\u00c2\u00ce\u00dbéèêëàáäôóòñ]")
 # Clause boundaries where an appended claim usually starts.
 _CLAUSE = re.compile(r",\s+|;\s+|\s+(?:veya|ya da|yani|olup|ve bu|or|which is|that is)\s+", re.IGNORECASE)
 

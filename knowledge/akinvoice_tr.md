@@ -4,11 +4,11 @@ Kaynak: http://localhost:8000 (AkınVoice proje açıklaması)
 
 ## AkınVoice Nedir
 
-AkınVoice (Akın Voice), bir adayın değerlendirme görevi olarak geliştirdiği sesli yapay zekâ asistanıdır; AKINROBOTICS veya AKINSOFT'un ürünü değildir. AkınVoice, AKINROBOTICS robotları, AKINSOFT yazılımları ve bu iki şirket hakkındaki soruları sesli olarak cevaplar. Kullanıcı konuşur, AkınVoice soruyu anlar, cevabı bilgi kaynaklarından bulur ve cevabı sesli olarak söyler.
+AkınVoice (Akın Voice), bir adayın değerlendirme görevi olarak geliştirdiği sesli yapay zeka asistanıdır; AKINROBOTICS veya AKINSOFT'un ürünü değildir. AkınVoice, AKINROBOTICS robotları, AKINSOFT yazılımları ve bu iki şirket hakkındaki soruları sesli olarak cevaplar. Kullanıcı konuşur, AkınVoice soruyu anlar, cevabı bilgi kaynaklarından bulur ve cevabı sesli olarak söyler.
 
 ## AkınVoice'u Kim Geliştirdi
 
-AkınVoice bir aday projesidir: AKINROBOTICS'teki Yapay Zekâ Yazılım Mühendisi pozisyonunun değerlendirme görevi olarak bir aday tarafından geliştirilmiştir. AkınVoice, AKINROBOTICS veya AKINSOFT'un resmî bir ürünü değildir.
+AkınVoice bir aday projesidir: AKINROBOTICS'teki Yapay Zeka Yazılım Mühendisi pozisyonunun değerlendirme görevi olarak bir aday tarafından geliştirilmiştir. AkınVoice, AKINROBOTICS veya AKINSOFT'un resmi bir ürünü değildir.
 
 ## AkınVoice Neleri Cevaplar
 

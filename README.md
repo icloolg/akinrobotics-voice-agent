@@ -39,16 +39,18 @@ uvicorn app.main:app --port 8000
 ```mermaid
 flowchart LR
     C[Tarayıcı] -- "PCM / WebSocket" --> V[VAD<br>Silero] --> S[STT<br>faster-whisper]
-    S --> R{Yönlendirici}
-    R -- bilgi --> K[(Hibrit arama<br>Chroma + BM25)] --> L[LLM<br>qwen2.5:3b]
+    S --> F[Konu takibi] --> R{Yönlendirici}
+    R -- bilgi --> K[(Hibrit arama<br>Chroma + BM25)] --> L[LLM<br>qwen2.5:3b · Ollama]
     R -- araç --> T[SQLite · API · saat] --> L
     R -- "sohbet / bilgi yok" --> H[Hazır cevap]
-    L --> D[NLI doğrulama] --> Q[TTS<br>Piper]
+    L --> D[Cümle doğrulama<br>NLI + sayı + dil] --> Q[TTS<br>Piper]
     H --> Q
     Q -- "cümle cümle ses" --> C
+    V -. "söz kesme" .-> L
+    A[Yönetim paneli] -. "belge → arka planda indeksleme" .-> K
 ```
 
-Tek FastAPI süreci. **Kaskad mimari (STT → LLM → TTS)** her aşamayı denetlenebilir ve değiştirilebilir kılar; gecikmesi akışla azaltılır: LLM yazarken tamamlanan her cümle doğrulanıp hemen seslendirilir. Bileşenler ortak arayüzleri uygular ve `config.yaml`'dan kurulur; yeni model veya araç bir sınıf + bir kayıt satırıdır.
+İki konteyner: AkınVoice sunucusu (FastAPI; STT, arama, doğrulama, TTS) ve LLM için Ollama. **Kaskad mimari (STT → LLM → TTS)** her aşamayı denetlenebilir ve değiştirilebilir kılar; gecikmesi akışla azaltılır: LLM yazarken tamamlanan her cümle doğrulanıp hemen seslendirilir. Bileşenler ortak arayüzleri uygular ve `config.yaml`'dan kurulur; yeni model veya araç bir sınıf + bir kayıt satırıdır.
 
 | Bileşen | Seçim | Gerekçe |
 |---|---|---|
@@ -59,8 +61,9 @@ Tek FastAPI süreci. **Kaskad mimari (STT → LLM → TTS)** her aşamayı denet
 | Doğrulama | mDeBERTa NLI (ONNX) | Her cümle seslendirilmeden kaynağa karşı kontrol edilir; desteklenmeyen cümle söylenmez. |
 | TTS | Piper (CPU) | RTF ~0,06–0,10; GPU'yu LLM ve STT'ye bırakır. |
 | Araçlar | Anlamsal yönlendirme, sabit SQL | Function-calling 3B modelde güvenilmez ve +1–2 sn; text-to-SQL yerine beyaz liste. |
+| Takip soruları | Konu takibi (bilinen adlar) | "Kaç saat çalışır?" son konuşulan adla aranır: ~0 ms; LLM ile soru yeniden yazma +1–2 sn. |
 
-Halüsinasyona karşı: eşik altında LLM çağrılmaz, prompt yalnızca bağlama izin verir, her cümle ve içindeki sayılar kaynakta doğrulanır, hesaplar SQL'de yapılır. Ayrıntılar: [`docs/TASARIM.md`](docs/TASARIM.md) · ölçüm günlüğü: [`NOTLAR.md`](NOTLAR.md).
+Halüsinasyona karşı: eşik altında LLM çağrılmaz, prompt yalnızca bağlama izin verir, her cümle ve içindeki sayılar kaynakta doğrulanır (uydurma bir ek varsa yalnızca desteklenen baş kısmı söylenir), Latin dışı yazıdaki cümle hiç seslendirilmez, hesaplar SQL'de yapılır. Ayrıntılar: [`docs/TASARIM.md`](docs/TASARIM.md) · ölçüm günlüğü: [`NOTLAR.md`](NOTLAR.md).
 
 ## Ölçüm sonuçları
 
@@ -85,4 +88,4 @@ Darboğaz LLM'in bağlamı okumasıdır: bağlam Ollama önbelleğindeyse ilk to
 
 ---
 
-İçerik ve görseller akinrobotics.com ve akinsoft.com.tr'den derlenmiştir; telif hakları sahiplerine aittir. AkınVoice bir aday projesidir; AKINROBOTICS veya AKINSOFT'un resmî ürünü değildir.
+İçerik ve görseller akinrobotics.com ve akinsoft.com.tr'den derlenmiştir; telif hakları sahiplerine aittir. AkınVoice bir aday projesidir; AKINROBOTICS veya AKINSOFT'un resmi ürünü değildir.

@@ -32,7 +32,7 @@ AKINROBOTICS, AKINSOFT'un 2015 yılında kurulan robot üretim kuruluşudur. AKI
 
 ## AKINSOFT Tarihçesi
 
-AKINSOFT 1995'te kuruldu ve 2000'li yılların başında donanımdan çıkıp yalnızca yazılıma odaklandı. 2009'da ilk Türk insansı robotlarını üretti ve İstanbul Plaza'yı açtı. 2010'lu yıllarda robotik alanında Ar-Ge çalışmalarına başladı. Robot fabrikasının temeli 26 Aralık 2015'te atıldı ve yapay zekâ ile tasarlanan insansı robotların seri üretimine geçildi. 2023'te AKINSPACE Yüksek Teknoloji Enstitüsü kuruldu ve Bahçeşehir Üniversitesi ile yapay zekâ ve robotik yüksek lisans programı başlatıldı.
+AKINSOFT 1995'te kuruldu ve 2000'li yılların başında donanımdan çıkıp yalnızca yazılıma odaklandı. 2009'da ilk Türk insansı robotlarını üretti ve İstanbul Plaza'yı açtı. 2010'lu yıllarda robotik alanında Ar-Ge çalışmalarına başladı. Robot fabrikasının temeli 26 Aralık 2015'te atıldı ve yapay zeka ile tasarlanan insansı robotların seri üretimine geçildi. 2023'te AKINSPACE Yüksek Teknoloji Enstitüsü kuruldu ve Bahçeşehir Üniversitesi ile yapay zeka ve robotik yüksek lisans programı başlatıldı.
 
 ## AKINSOFT Misyon ve Vizyon
 

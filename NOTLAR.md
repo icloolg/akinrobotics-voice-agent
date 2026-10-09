@@ -165,7 +165,7 @@ README'ye girecek bulgular ve açık işler.
     aracına gitti; sütun yok → bütün tablo bağlam oldu → ilk ses **8.5 sn**. Çözüm: araç
     `ToolNotApplicable` fırlatıyor, soru RAG'e düşüyor → 3.2 sn, doğru red. Genel mekanizma (her araç için).
 43. **"Nasılsın?" → "Nasılsın?" (tekrar):** sohbet promptuna "kullanıcının sözlerini tekrar etme, cevap ver"
-    + örnek → "İyiyim, teşekkür ederim." "Merhaba nasılsın?" hâlâ bazen tekrar ediyor.
+    + örnek → "İyiyim, teşekkür ederim." "Merhaba nasılsın?" hala bazen tekrar ediyor.
 44. **Denendi ve geri alındı — "yardımcı red":** "Bilgi yok de, sonra bağlamdan ilgili tek bir bilgi ekle."
     Amaç: "AKINCI-5 uçabilir mi?" sorusuna çıplak red yerine "...yürüyebilen bir insansı robottur".
     Sonuç kötüleşti: "ARAT merdiven çıkabilir mi?" → "Hayır." (yanlış), "Hangi robotlarınız var?" ve
@@ -288,7 +288,7 @@ README'ye girecek bulgular ve açık işler.
     davrandı. Sonrasında akinsoft.com.tr ana sayfasından "AKINSOFT Rakamlarla" (16 dil, 112 ödül, 4.957 saha
     personeli, 143 sektör...) ve "WOLVOX MRP" bölümleri eklendi; WOLVOX sözlüğe ve konu listesine eklendi ("VOLVOX"
     diye duyulmuştu). Dört soru artık doğru; İngilizce "How many awards?" ilgili bölümü bulamıyor (diller arası arama).
-    Regresyon: STT 23/23, WER 0.31; ajan 51/62 (±1). README'ye serbest test EKLEMEDEN ÖNCEKİ hâliyle yazılacak.
+    Regresyon: STT 23/23, WER 0.31; ajan 51/62 (±1). README'ye serbest test EKLEMEDEN ÖNCEKİ haliyle yazılacak.
 63. **Ada-7 dil listesi ve sesler eklendi (kullanıcının sitedeki metni). NLI liste sorunu:** virgülden bölünen liste
     parçaları ("bağırma ve sessizlik gibi.") tek başına elendi. Parçayı cümlenin önceki parçalarıyla birlikte kontrol
     etmek yetmedi: NLI, dokümandan KELİMESİ KELİMESİNE kopyalanmış iki noktalı liste cümlesine 0.05 verdi (aynı bilgi düz
@@ -385,7 +385,7 @@ README'ye girecek bulgular ve açık işler.
       yalnızca GPU imajına kurulur; indeksleme derleme sırasında bir kez yapılıp OCR önbelleği imaja alınır.
 74. **Değerlendiricinin kurulumu.** GitHub'dan boş klasöre klonlayıp `--no-cache` derleme ile sıfırdan denendi:
     derleme ~15 dk, Ollama imajı 3,8 GB (~13 dk), model 2 GB (~7 dk), açılış ~70 sn — toplam ~36 dk (CPU modu).
-    En büyük kalem Ollama'nın resmî imajı. Kararlar: (1) hazır imaj GHCR'da (`ghcr.io/icloolg/akinvoice`, public),
+    En büyük kalem Ollama'nın resmi imajı. Kararlar: (1) hazır imaj GHCR'da (`ghcr.io/icloolg/akinvoice`, public),
     `docker compose up` derlemek yerine onu çeker; (2) tek imaj hem GPU hem CPU (CUDA kütüphaneleri imajda,
     7,2 GB); `docker-compose.yml` GPU varsayılan, `docker-compose.cpu.yml` GPU'suz yedek — yalnızca GPU'ya bağlı
     bir kurulum NVIDIA kartı olmayan değerlendiricide hiç açılmazdı; (3) bilgisayarda Ollama varsa

@@ -4,7 +4,7 @@ Kaynak: https://www.akinrobotics.com/akinrobotics-operating-system-aros (Ekim 20
 
 ## AROS Nedir
 
-AROS (AKINROBOTICS Operating System), AKINROBOTICS'in geliştirdiği robot işletim sistemidir. AROS; robot tasarımı, robot kontrolü, yapay zekâ entegrasyonu ve bulut yönetimini tek bir platformda toplar. Modüler yapısı sayesinde farklı seviyedeki kullanıcıların robot geliştirmesini kolaylaştırır.
+AROS (AKINROBOTICS Operating System), AKINROBOTICS'in geliştirdiği robot işletim sistemidir. AROS; robot tasarımı, robot kontrolü, yapay zeka entegrasyonu ve bulut yönetimini tek bir platformda toplar. Modüler yapısı sayesinde farklı seviyedeki kullanıcıların robot geliştirmesini kolaylaştırır.
 
 ## AROS Bileşenleri
 

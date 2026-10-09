@@ -12,7 +12,7 @@ AKINROBOTICS fabrikasında 11.000 metrekarelik bir robotik uygulama alanı ve 3.
 
 ## Misyon ve Vizyon
 
-AKINROBOTICS'in misyonu, tekrarlayan ve ergonomik açıdan zararlı işleri robotlara devrederek insanların daha nitelikli işlerle uğraşmasını ve daha kaliteli yaşamasını sağlamaktır. Vizyonu ise yapay zekâ ile bütünleşmiş insansı robotları vazgeçilmez bir teknoloji hâline getirmektir.
+AKINROBOTICS'in misyonu, tekrarlayan ve ergonomik açıdan zararlı işleri robotlara devrederek insanların daha nitelikli işlerle uğraşmasını ve daha kaliteli yaşamasını sağlamaktır. Vizyonu ise yapay zeka ile bütünleşmiş insansı robotları vazgeçilmez bir teknoloji haline getirmektir.
 
 ## Ürün Gamı
 
@@ -28,4 +28,4 @@ Mini Ada ve Ada-7 sosyal robotları satın almanın yanı sıra kiralanabilir. K
 
 ## Üniversite İş Birlikleri
 
-AKINROBOTICS, 2023'ten itibaren Bahçeşehir Üniversitesi ile yapay zekâ ve robotik yüksek lisans programı, Haliç Üniversitesi ile yapay zekâ ve robotik bursu ve Bilgi Üniversitesi ile yapay zekâ ve robotik sistemler projesi gibi iş birlikleri yapmıştır.
+AKINROBOTICS, 2023'ten itibaren Bahçeşehir Üniversitesi ile yapay zeka ve robotik yüksek lisans programı, Haliç Üniversitesi ile yapay zeka ve robotik bursu ve Bilgi Üniversitesi ile yapay zeka ve robotik sistemler projesi gibi iş birlikleri yapmıştır.

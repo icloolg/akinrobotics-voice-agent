@@ -74,15 +74,16 @@ Tek bir önlem yetmediği için katmanlıdır; her katman ölçülerek eklenmiş
 
 1. **Erişim eşiği.** En iyi parçanın embedding benzerliği 0,80'in altındaysa LLM hiç çağrılmaz, sabit "bilgi bulamadım" cümlesi söylenir.
 2. **Yalnızca bağlam.** Sistem promptu dış bilgiyi yasaklar; araç çıktıları da aynı "yalnızca bağlam" kuralıyla LLM'e verilir.
-3. **Cümle cümle doğrulama (NLI).** Her cümle seslendirilmeden önce çok dilli bir doğal dil çıkarımı modeliyle (mDeBERTa-v3-base-xnli, ONNX) kaynak parçalara karşı kontrol edilir; desteklenmeyen cümle söylenmez, hiçbiri kalmazsa "bilgi bulamadım" denir. Bu, RAG değerlendirme araçlarındaki *faithfulness* ölçütünün canlı hâlidir ve promptun farklı parçalardaki bilgileri birleştirmesine izin verir ("AKINSOFT ile AKINROBOTICS farkı nedir?").
+3. **Cümle cümle doğrulama (NLI).** Her cümle seslendirilmeden önce çok dilli bir doğal dil çıkarımı modeliyle (mDeBERTa-v3-base-xnli, ONNX) kaynak parçalara karşı kontrol edilir; desteklenmeyen cümle söylenmez, hiçbiri kalmazsa "bilgi bulamadım" denir. Bu, RAG değerlendirme araçlarındaki *faithfulness* ölçütünün canlı halidir ve promptun farklı parçalardaki bilgileri birleştirmesine izin verir ("AKINSOFT ile AKINROBOTICS farkı nedir?").
    - Her cümle önce **parça parça** skorlanır: iki parça birleştirilince model öbür parçadaki başka robotların değerlerini çelişki sanıyordu (doğru bir cümle 0,994 yerine 0,008 aldı).
    - Eşik 0,10'dur, 0,5 değil: doğru cümlelerin skorları 0,01–1,00 arasında dağılıyor (sayılar, listeler, Türkçe kaynağa İngilizce cevap); 0,5'te 55 doğru cümlenin 13'ü eleniyordu (`scripts/calibrate_verifier.py`).
-4. **Sayı kontrolü.** Cümledeki her sayı kaynakta geçmelidir. NLI ana iddiaya bakıp eklenmiş bir sayıyı kaçırabiliyor ("166 santimetre veya 1,66 metre olup, bu 5,43 metreye eşittir" 0,97 aldı).
-5. **Hesap LLM'e bırakılmaz.** Karşılaştırma ve sayı filtreleri SQL'de yapılır; saat ve robot durumu araçtan gelir.
-6. **Araç cevaplayamıyorsa zorlanmaz.** Araçta karşılığı olmayan soru (`ToolNotApplicable`) doküman yoluna düşer; araç hatası (`ToolUnavailable`) LLM'den geçmeden aynen söylenir.
-7. **Sohbet olguya dönüşmez.** Selam, teşekkür, "Sen kimsin?" hazır cevaplarla; soru olmayan tepkiler ("Süper!", "Tamam.") sabit bir onayla cevaplanır. Tepki ayrımı dilbilgiseldir: soru işareti, soru eki, soru kelimesi veya istek fiili yoksa ve bilgi tabanındaki hiçbir kelime geçmiyorsa ifade tepkidir (geliştirme setinin 62 sorusunun hiçbiri tepki sayılmadı; görülmemiş 14 tepkinin 13'ü ayrıldı).
-8. **STT halüsinasyonları elenir.** Whisper'ın sessizlik kuralı (no_speech_prob > 0,6 ve avg_logprob < −1) ve bilinen altyazı kalıpları ("izlediğiniz için teşekkürler") konuşma sayılmaz.
-9. **İzlenebilirlik.** Her turda yol, kaynak dosya, skor ve elenen cümleler loglanır; tarayıcı her cevabın kaynağını ve gecikme dökümünü gösterir.
+4. **Sayı kontrolü ve cümle kurtarma.** Cümledeki her sayı kaynakta geçmelidir. NLI ana iddiaya bakıp eklenmiş bir sayıyı kaçırabiliyor ("166 santimetre veya 1,66 metre olup, bu 5,43 metreye eşittir" 0,97 aldı). Reddedilen cümle bağlaçlardan ("veya", "olup", "yani", virgül) bölünür ve aynı kontrolleri geçen en uzun baş kısmı söylenir ("Ada-7'in boyu 166 santimetre."); doğru bilgi, arkasına eklenen uydurma yüzünden kaybolmaz.
+5. **Dil koruması.** Latin dışı yazı (Çince, Kiril…) içeren cümle hiç seslendirilmez. Qwen ara sıra Çinceye kayıyor; çok dilli NLI anlamı doğru olduğu için bunu geçiriyor, TTS de okuyamıyor.
+6. **Hesap LLM'e bırakılmaz.** Karşılaştırma ve sayı filtreleri SQL'de yapılır; saat ve robot durumu araçtan gelir.
+7. **Araç cevaplayamıyorsa zorlanmaz.** Araçta karşılığı olmayan soru (`ToolNotApplicable`) doküman yoluna düşer; araç hatası (`ToolUnavailable`) LLM'den geçmeden aynen söylenir.
+8. **Sohbet olguya dönüşmez.** Selam, teşekkür, "Sen kimsin?" hazır cevaplarla; soru olmayan tepkiler ("Süper!", "Tamam.") sabit bir onayla cevaplanır. Tepki ayrımı dilbilgiseldir: soru işareti, soru eki, soru kelimesi veya istek fiili yoksa ve bilgi tabanındaki hiçbir kelime geçmiyorsa ifade tepkidir (geliştirme setinin 62 sorusunun hiçbiri tepki sayılmadı; görülmemiş 14 tepkinin 13'ü ayrıldı).
+9. **STT halüsinasyonları elenir.** Whisper'ın sessizlik kuralı (no_speech_prob > 0,6 ve avg_logprob < −1) ve bilinen altyazı kalıpları ("izlediğiniz için teşekkürler") konuşma sayılmaz.
+10. **İzlenebilirlik.** Her turda yol, kaynak dosya, skor ve elenen cümleler loglanır; tarayıcı her cevabın kaynağını ve gecikme dökümünü gösterir.
 
 ## Gecikme analizi
 
@@ -134,6 +135,7 @@ Bu yüzden sitelerden indirilen sayfalar (`knowledge_web/`, `python -m scripts.f
 ## Konuşma deneyimi
 
 - **Söz kesme (barge-in):** Sunucu cevap verirken de dinler. Kullanıcı araya girerse (250 ms sesli konuşma) cevap durur, LLM üretimi iptal edilir ve yeni soru dinlenir. Daha kısa sesler (yankı, tıkırtı) yok sayılır. Tarayıcının yankı engelleyicisi gerekir; Python istemcisi konuşurken mikrofonu kapatır (yarı çift yönlü). `vad.barge_in: false` ile kapatılabilir.
+- **Sohbet sürekliliği:** her tarayıcı sekmesi bir sohbet kimliği tutar (`/ws?conversation=<id>`); Durdur/Başlat bağlantıyı kapatıp açsa da geçmiş ve konu korunur, sohbeti yalnızca Sıfırla bitirir. Sunucu en fazla 100 sohbet tutar, 1 saat kullanılmayanı siler.
 - **Takip soruları:** "ARAT kaç kilo?" → "Kaç saat çalışır?" sorusu "ARAT: Kaç saat çalışır?" olarak aranır. Soru hiçbir ad içermiyorsa ve cevapta tek bir ad geçiyorsa ("En hızlı robot hangisi?" → "AKINCI-5"), konu o ad olur. LLM ile soru yeniden yazma seçilmedi: her takip sorusuna 1–2 sn ekler ve 3B model yeniden yazarken hata yapıyor.
 - Cevabın altında adı geçen robotun görseli ve gecikme dökümü (STT, LLM ilk token, ilk cümle+TTS, kaynak) gösterilir.
 - 100 ms'den kısa sesler STT'ye gönderilmez; konuşma hızı `tts.length_scale` ile ayarlanır; liste ve markdown işaretleri seslendirilmeden temizlenir.
