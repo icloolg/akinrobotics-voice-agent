@@ -427,6 +427,16 @@ const TEXT = {
   },
 };
 
+// One conversation per browser tab: Stop/Start reconnects to the same conversation
+// (history and follow-up topic); only Reset starts a new one on the server.
+const conversationId = (() => {
+  try {
+    const id = sessionStorage.getItem('akinvoice.conversation') || crypto.randomUUID();
+    sessionStorage.setItem('akinvoice.conversation', id);
+    return id;
+  } catch { return crypto.randomUUID(); }
+})();
+
 const store = {   // remembered choices; storage can be blocked (private window), so never fail on it
   get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
@@ -562,7 +572,8 @@ async function start() {
   micNode = new AudioWorkletNode(ctx, 'mic');
   ctx.createMediaStreamSource(micStream).connect(micNode);
 
-  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
+                     + '/ws?conversation=' + encodeURIComponent(conversationId));
   ws.binaryType = 'arraybuffer';
   ws.onopen = sendSpeechLanguage;
   setStatus('thinking', 'connecting');

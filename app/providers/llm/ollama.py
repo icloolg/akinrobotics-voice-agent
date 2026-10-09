@@ -30,15 +30,17 @@ class OllamaLLM(LLMProvider):
             # (system + 2 chunks + 1 past turn is ~800 tokens) and costs VRAM.
             self.options["num_ctx"] = num_ctx
 
-    def stream(self, messages: list[dict]) -> Iterator[str]:
+    def stream(self, messages: list[dict], timeout: float = 120) -> Iterator[str]:
         payload = {
             "model": self.model,
             "messages": messages,
             "stream": True,
             "options": self.options,
-            "keep_alive": "30m",  # keep the model in GPU memory between turns
+            # Never unload the model: after an idle period Ollama frees it, and
+            # reloading took ~15 s on the next question (measured in Docker).
+            "keep_alive": -1,
         }
-        with requests.post(self.url, json=payload, stream=True, timeout=120) as r:
+        with requests.post(self.url, json=payload, stream=True, timeout=timeout) as r:
             r.raise_for_status()
             for line in r.iter_lines():
                 if not line:
@@ -51,6 +53,7 @@ class OllamaLLM(LLMProvider):
 
     def warmup(self) -> None:
         """First request loads the model into memory; do it before users talk."""
-        for _ in self.stream([{"role": "user", "content": "hi"}]):
+        # A long timeout: the first load can take minutes (slow disk, CPU-only machine).
+        for _ in self.stream([{"role": "user", "content": "hi"}], timeout=600):
             pass
         log.info("LLM warmed up: %s", self.model)

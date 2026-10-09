@@ -1,0 +1,50 @@
+# AkınVoice without an NVIDIA GPU (same image, everything on the CPU; slower: STT ~2-4.5 s):
+#
+#     docker compose -f docker-compose.cpu.yml up
+#
+# then open http://localhost:8000 in a browser.
+
+services:
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ollama-pull:
+    image: ollama/ollama
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama", "pull", "${LLM_MODEL:-qwen2.5:3b}"]
+    restart: "no"
+
+  agent:
+    image: ghcr.io/icloolg/akinvoice:latest
+    build: .
+    restart: unless-stopped     # recovers from a crash; `docker compose down` stops it
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    environment:
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:3b}
+      STT_DEVICE: cpu
+      STT_COMPUTE_TYPE: int8
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      DOCS_ENABLED: ${DOCS_ENABLED:-1}
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./knowledge:/app/knowledge
+      - ./logs:/app/logs
+
+volumes:
+  ollama:

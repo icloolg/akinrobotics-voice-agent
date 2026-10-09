@@ -22,7 +22,10 @@ import asyncio
 import json
 import logging
 import os
+import re
 import threading
+import time
+from collections import OrderedDict
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -69,7 +72,8 @@ Sesli asistan sunucusu. Tarayıcı istemcisi: [`/`](/) · Yönetim paneli: [`/ad
 
 ### Sesli konuşma: WebSocket `/ws`
 
-WebSocket uç noktaları Swagger'da listelenmez; protokol:
+WebSocket uç noktaları Swagger'da listelenmez; protokol aşağıda. İsteğe bağlı `?conversation=<kimlik>` parametresi
+aynı kimlikle yeniden bağlanan istemcinin kaldığı sohbetten (geçmiş, konu) devam etmesini sağlar.
 
 | Yön | Tür | İçerik |
 |---|---|---|
@@ -113,17 +117,48 @@ def health():
     return {"status": "ok" if "agent" in state else "loading"}
 
 
-class Session:
-    """One connected client: its conversation, its running answer, its VAD."""
+class Conversations:
+    """Conversation state (history, follow-up topic) per browser tab, kept across
+    reconnects: "Stop" closes the WebSocket, and "Start" must continue the same
+    conversation, not begin a new one. Only "Reset" ends it. Bounded: at most
+    `max_size` conversations, each dropped after `ttl_s` without use."""
 
-    def __init__(self, ws: WebSocket):
+    ID = re.compile(r"[A-Za-z0-9-]{8,64}")
+
+    def __init__(self, max_size: int = 100, ttl_s: float = 3600):
+        self.max_size, self.ttl_s = max_size, ttl_s
+        self.items: OrderedDict[str, tuple[float, object]] = OrderedDict()
+
+    def get(self, conversation_id: str | None):
+        """The agent of this conversation; a new one for an unknown or missing id."""
+        now = time.monotonic()
+        for cid in [c for c, (seen, _) in self.items.items() if now - seen > self.ttl_s]:
+            del self.items[cid]
+        if not conversation_id or not self.ID.fullmatch(conversation_id):
+            return state["agent"].fork()
+        _, agent = self.items.pop(conversation_id, (None, None))
+        agent = agent or state["agent"].fork()
+        self.items[conversation_id] = (now, agent)
+        while len(self.items) > self.max_size:
+            self.items.popitem(last=False)
+        return agent
+
+
+conversations = Conversations()
+
+
+class Session:
+    """One WebSocket connection: its running answer and its VAD. The conversation
+    (agent with history and topic) comes from `conversations`."""
+
+    def __init__(self, ws: WebSocket, agent):
         vad = dict(cfg.get("vad", {}))
         self.barge_in = vad.pop("barge_in", True)
         self.barge_in_ms = vad.pop("barge_in_ms", 250)
         self.segmenter = Segmenter(**vad)
         self.ws = ws
-        # Own conversation history per client; the models are shared.
-        self.pipeline = VoicePipeline(state["stt"], state["agent"].fork(), state["tts"],
+        # Models are shared; the agent (history, topic) belongs to one conversation.
+        self.pipeline = VoicePipeline(state["stt"], agent, state["tts"],
                                       endpoint_ms=vad.get("min_silence_ms", 500),
                                       verifier=state["verifier"])
         self.task: asyncio.Task | None = None
@@ -215,7 +250,7 @@ async def _send_quietly(ws: WebSocket, event: dict) -> None:
 @app.websocket("/ws")
 async def voice(ws: WebSocket):
     await ws.accept()
-    session = Session(ws)
+    session = Session(ws, conversations.get(ws.query_params.get("conversation")))
     await ws.send_json({"type": "hello", "sample_rate": session.pipeline.tts.sample_rate,
                         "barge_in": session.barge_in})
     log.info("Client connected")

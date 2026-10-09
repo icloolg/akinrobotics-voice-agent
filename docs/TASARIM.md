@@ -66,7 +66,7 @@ config.yaml            bütün bileşen ve eşik ayarları
 - Her cevabın altında kaynağı ve gecikme dökümü (STT, LLM ilk token, ilk cümle+TTS) görünür.
 - Örnek sorular: "Ada-7 kaç kilogram?", "What is AROS?", "En hızlı robot hangisi?" → "Ne kadar hızlı?", "Şu an hangi robot arızalı?", "Ada-7 uçabilir mi?" (cevapsız), "Bugün hava nasıl?" (kapsam dışı).
 - Tarayıcı yerine Python istemcisi: `pip install -r client/requirements.txt && python client/voice_client.py`. Mikrofon, tarayıcı kuralı gereği yalnızca `localhost` veya HTTPS üzerinden açılır.
-- Docker: CPU imajı 4,9 GB; ~0,5 MB/sn bağlantıda ilk derleme ~37 dk; konteyner ~70 sn'de hazır. CUDA kütüphaneleri yalnızca GPU imajına kurulur. GPU yoksa (Docker'sız) `config.yaml` içinde `stt.device: cpu`.
+- Docker: tek imaj hem GPU'da (`docker-compose.yml`) hem CPU'da (`docker-compose.cpu.yml`, `STT_DEVICE=cpu`) çalışır; CUDA kütüphaneleri imajın içindedir. Hazır imaj `ghcr.io/icloolg/akinvoice`; kaynaktan derleme ~15–40 dk (bağlantıya bağlı); konteyner ~70 sn'de hazır. Docker'sız kurulumda GPU yoksa `config.yaml` içinde `stt.device: cpu`.
 
 ## Halüsinasyon kontrolü
 

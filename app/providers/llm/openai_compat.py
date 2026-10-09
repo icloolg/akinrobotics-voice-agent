@@ -34,12 +34,12 @@ class OpenAICompatLLM(LLMProvider):
         self.max_tokens = max_tokens
         self.headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
-    def stream(self, messages: list[dict]) -> Iterator[str]:
+    def stream(self, messages: list[dict], timeout: float = 120) -> Iterator[str]:
         payload = {"model": self.model, "messages": messages, "stream": True,
                    "temperature": self.temperature}
         if self.max_tokens:
             payload["max_tokens"] = self.max_tokens
-        with requests.post(self.url, json=payload, headers=self.headers, stream=True, timeout=120) as r:
+        with requests.post(self.url, json=payload, headers=self.headers, stream=True, timeout=timeout) as r:
             r.raise_for_status()
             for line in r.iter_lines():
                 if not line.startswith(b"data:"):
@@ -52,6 +52,7 @@ class OpenAICompatLLM(LLMProvider):
                     yield piece
 
     def warmup(self) -> None:
-        for _ in self.stream([{"role": "user", "content": "hi"}]):
+        # A long timeout: the first load can take minutes (slow disk, CPU-only machine).
+        for _ in self.stream([{"role": "user", "content": "hi"}], timeout=600):
             pass
         log.info("LLM warmed up: %s", self.model)

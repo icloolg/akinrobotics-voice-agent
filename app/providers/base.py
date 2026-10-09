@@ -28,7 +28,7 @@ class STTProvider(ABC):
 
 class LLMProvider(ABC):
     @abstractmethod
-    def stream(self, messages: list[dict]) -> Iterator[str]:
+    def stream(self, messages: list[dict], timeout: float = 120) -> Iterator[str]:
         """Yield the answer piece by piece (tokens)."""
 
     def warmup(self) -> None:

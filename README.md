@@ -5,11 +5,22 @@ AKINROBOTICS robotları, AKINSOFT yazılımları ve iki şirket hakkındaki soru
 ## Kurulum ve çalıştırma
 
 ```bash
-docker compose up --build                                                    # CPU
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build    # NVIDIA GPU
+docker compose up
 ```
 
-**http://localhost:8000** → **Başlat** → mikrofona izin verin ve konuşun. İlk derlemede modeller imaja gömülür ve Ollama LLM'i indirir (~2 GB); sonraki açılışlar çevrimdışıdır. GPU için NVIDIA Container Toolkit gerekir. Yönetim paneli: `ADMIN_TOKEN=<anahtar> docker compose up` → `/admin`.
+**http://localhost:8000** → **Başlat** → mikrofona izin verin ve konuşun. Yönetim paneli: `ADMIN_TOKEN=<anahtar> docker compose up` → `/admin`.
+
+NVIDIA GPU gerekir (Windows'ta Docker Desktop + WSL2 ile hazır gelir). **GPU yoksa** aynı imaj CPU'da çalışır (daha yavaş):
+
+```bash
+docker compose -f docker-compose.cpu.yml up
+```
+
+İlk çalıştırmada hazır AkınVoice imajı (`ghcr.io/icloolg/akinvoice`, ~4,3 GB, bütün modeller içinde), Ollama imajı (~3,8 GB) ve LLM (~2 GB) iner; sonraki açılışlar çevrimdışıdır. İmajı kaynaktan derlemek için `--build` ekleyin. **Bilgisayarda Ollama zaten kuruluysa** Ollama imajı ve model indirmesi atlanır:
+
+```powershell
+$env:OLLAMA_BASE_URL="http://host.docker.internal:11434"; docker compose up --no-deps agent
+```
 
 Docker'sız (Python 3.12 + [Ollama](https://ollama.com)):
 

@@ -383,6 +383,36 @@ README'ye girecek bulgular ve açık işler.
     - Docker: requirements.txt'te rank-bm25 eksikti (imaj açılışta çökerdi); torchvision CPU dizininden kuruluyor
       (yoksa pip torch'u CUDA sürümüyle değiştiriyor); CUDA kütüphaneleri (~1.2 GB) requirements-gpu.txt'e ayrıldı,
       yalnızca GPU imajına kurulur; indeksleme derleme sırasında bir kez yapılıp OCR önbelleği imaja alınır.
+74. **Değerlendiricinin kurulumu.** GitHub'dan boş klasöre klonlayıp `--no-cache` derleme ile sıfırdan denendi:
+    derleme ~15 dk, Ollama imajı 3,8 GB (~13 dk), model 2 GB (~7 dk), açılış ~70 sn — toplam ~36 dk (CPU modu).
+    En büyük kalem Ollama'nın resmî imajı. Kararlar: (1) hazır imaj GHCR'da (`ghcr.io/icloolg/akinvoice`, public),
+    `docker compose up` derlemek yerine onu çeker; (2) tek imaj hem GPU hem CPU (CUDA kütüphaneleri imajda,
+    7,2 GB); `docker-compose.yml` GPU varsayılan, `docker-compose.cpu.yml` GPU'suz yedek — yalnızca GPU'ya bağlı
+    bir kurulum NVIDIA kartı olmayan değerlendiricide hiç açılmazdı; (3) bilgisayarda Ollama varsa
+    `OLLAMA_BASE_URL` ile Ollama imajı ve model indirmesi atlanır. Docker GPU (WSL2) doğrulandı: Whisper cuda,
+    Ollama %100 GPU, STT 0,7–0,8 sn, sohbet 1,3 sn, bilgi 2,7–4,7 sn (CPU modunda STT 2–4,5 sn).
+    Sorun: C: diski dolunca (6,9 GB boş) Docker motoru CUDA paketlerini açarken kilitlendi; durdurulan görevlerin
+    docker-compose süreçleri arkada çalışmaya devam ediyordu. Eski imajlar silinip Docker yeniden başlatıldı.
+    Dockerfile'da iki requirements dosyası ayrı katmana alındı (birindeki değişiklik diğerini yeniden kurdurmasın).
+75. **Demo provasında iki sorun.** (1) "Ada-7'in boyu kaç cm?" → 19,8 sn ve "bilgi bulamadım". İlk token 16,7 sn:
+    Ollama modeli 30 dk boşta kalınca bellekten atmış, yeniden yükleme Docker'da ~15 sn. `keep_alive: -1` ile model
+    hiç boşaltılmıyor. (2) Model "166 santimetre veya 1,66 metre olup, bu 5,43 metreye eşittir" yazdı; sayı kontrolü
+    cümleyi doğru şekilde sildi ama doğru bilgi de gitti. Prompta "birim dönüştürme, hesap yapma" kuralı denendi:
+    3B model yine dönüştürdü ("0,0007 kilometre") ve kural Çinceye kaymaya yol açtı ("AKINCI-5机器人是最快的。";
+    kurallı 1/8, kuralsız 0/8) — kural geri alındı. Değerlendirme betiği bunu yakalamadı (beklenen kelime "AKINCI-5"
+    geçiyordu), NLI de çok dilli olduğu için geçirdi: Latin dışı harf içeren cümle artık hiç seslendirilmiyor.
+    Asıl çözüm: reddedilen cümle bağlaçlardan ("veya", "olup",
+    "yani", virgül) cümleciklere bölünür ve aynı kontrolleri geçen en uzun baş kısım söylenir → "Ada-7'in boyu 166
+    santimetre." Cevapsız sorularda kurtarılacak destekli parça olmadığı için güvenlik değişmedi. Geliştirme seti
+    57/62 (cevapsız 8/8, araç 11/11). Dockerfile: modeller koddan önce indiriliyor; kod değişikliği 1,5 GB'lık
+    model katmanını geçersiz kılmıyor (sonraki derlemeler 15–40 dk yerine ~1,5 dk).
+76. **Durdur/Başlat sohbeti sıfırlıyordu.** Demo provasında "Ada-7'in boyu kaç cm?" → (Durdur, anlatım, Başlat) →
+    "Peki kaç kilogram?" Ada-7 yerine AMR/ARAT'ın yükünü cevapladı. Log: istemci bağlantıyı kapatıp yeniden açmış,
+    sunucu yeni bağlantıyı yeni sohbet saymış, konu kaybolmuş. Kullanıcı için "Durdur" mikrofonu kapatmaktır,
+    sohbeti bitirmek değil. Artık her sekme bir sohbet kimliği tutuyor (sessionStorage) ve `/ws?conversation=<id>`
+    ile bağlanıyor; sunucu geçmişi ve konuyu kimliğe göre saklıyor (en fazla 100 sohbet, 1 saat kullanılmayan silinir).
+    Sohbeti yalnızca "Sıfırla" bitiriyor. Ayrıca LLM ısıtması 120 sn'de zaman aşımına uğrayıp açılışı düşürmüştü
+    (GPU dolu, model yavaş yüklendi): ısıtma için zaman aşımı 10 dk, konteynere `restart: unless-stopped`.
 46. **Aynı klasörde iki düzenleme oturumu:** İkinci oturum `agent.py`'yi eski kopyasıyla ezdi; 42. maddenin
     kodu ve bu notların 42-45'i kayboldu, inceleme sırasında fark edilip geri getirildi. Ders: tek oturum yazar.
 

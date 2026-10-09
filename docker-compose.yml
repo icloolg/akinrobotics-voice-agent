@@ -1,16 +1,15 @@
-# Whole system with one command (works on any machine, CPU only):
+# AkınVoice with one command (NVIDIA GPU; Docker Desktop on Windows supports it via WSL2,
+# on Linux it needs the NVIDIA Container Toolkit):
 #
-#     docker compose up --build
+#     docker compose up
 #
 # then open http://localhost:8000 in a browser.
 #
-# With an NVIDIA GPU (needs the NVIDIA Container Toolkit; Docker Desktop on
-# Windows has it built in), add the GPU file:
-#
-#     docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
-#
-# Another LLM:  LLM_MODEL=qwen2.5:7b docker compose up
-# Admin panel:  ADMIN_TOKEN=<anahtar> docker compose up   -> http://localhost:8000/admin
+# Without an NVIDIA GPU:          docker compose -f docker-compose.cpu.yml up
+# Build the image from source:    docker compose up --build
+# Ollama already on this machine (skips the Ollama image and model download):
+#     OLLAMA_BASE_URL=http://host.docker.internal:11434 docker compose up --no-deps agent
+# Admin panel:                    ADMIN_TOKEN=<anahtar> docker compose up   -> /admin
 
 services:
   ollama:                       # LLM server
@@ -22,6 +21,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   ollama-pull:                  # one-shot: downloads the LLM (~2 GB) on first start, then exits
     image: ollama/ollama
@@ -34,16 +40,18 @@ services:
     restart: "no"
 
   agent:                        # voice server + browser client
+    image: ghcr.io/icloolg/akinvoice:latest   # prebuilt from this repository; built if the pull fails
     build: .
+    restart: unless-stopped     # recovers from a crash; `docker compose down` stops it
     depends_on:
       ollama-pull:
         condition: service_completed_successfully
     ports:
       - "8000:8000"
     environment:
-      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       LLM_MODEL: ${LLM_MODEL:-qwen2.5:3b}
-      STT_DEVICE: cpu
+      STT_DEVICE: cuda
       STT_COMPUTE_TYPE: int8
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}         # set it to turn on /admin (knowledge sources panel)
       DOCS_ENABLED: ${DOCS_ENABLED:-1}      # 0 = no Swagger UI (/docs) in production
@@ -51,6 +59,13 @@ services:
       - ./config.yaml:/app/config.yaml:ro   # change thresholds etc. without rebuilding
       - ./knowledge:/app/knowledge          # documents; add via /admin or here + python -m scripts.ingest
       - ./logs:/app/logs                    # logs/turns.jsonl: one line of measurements per turn
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
 volumes:
   ollama:

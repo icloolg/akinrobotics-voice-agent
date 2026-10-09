@@ -181,3 +181,18 @@ def test_each_client_has_its_own_history(client):
         b.send_bytes(speech(600) + silence(800))
         read_until(b, "done")
     assert server.state["agent"].history == []     # the shared agent is only a template
+
+
+def test_reconnecting_continues_the_same_conversation(client):
+    # "Stop" closes the WebSocket; "Start" reconnects with the tab's conversation id.
+    with client.websocket_connect("/ws?conversation=tab-12345678") as ws:
+        ws.receive_json()
+        ws.send_bytes(speech(600) + silence(800))
+        read_until(ws, "done")
+    first = server.conversations.items["tab-12345678"][1]
+    with client.websocket_connect("/ws?conversation=tab-12345678") as ws:
+        ws.receive_json()
+    assert server.conversations.items["tab-12345678"][1] is first        # same history and topic
+    with client.websocket_connect("/ws?conversation=other-tab-9999") as ws:
+        ws.receive_json()
+    assert server.conversations.items["other-tab-9999"][1] is not first  # another tab, another conversation

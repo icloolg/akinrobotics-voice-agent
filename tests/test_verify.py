@@ -29,3 +29,12 @@ def test_decimal_comma_and_point_are_the_same_number():
 
 def test_digits_inside_names_are_not_numbers():
     assert unknown("Ada-7 ve Servis Robotu V3 sosyal robotlardır.") == []
+
+
+def test_sentences_in_another_script_are_never_spoken():
+    from app.agent.verify import _FOREIGN_SCRIPT
+    assert _FOREIGN_SCRIPT.search("AKINCI-5机器人是最快的。")
+    assert _FOREIGN_SCRIPT.search("Робот самый быстрый.")
+    for ok in ["AKINCI-5 en hızlı robottur.", "Ada-7 65 kilogramdır; şarj süresi 3 saattir.",
+               "AKINCI-5 is the fastest robot (2.5 m/s).", "Çağrı, İstanbul'da üç günlük fuarda."]:
+        assert not _FOREIGN_SCRIPT.search(ok), ok

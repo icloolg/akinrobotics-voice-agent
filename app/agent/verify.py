@@ -32,6 +32,12 @@ import numpy as np
 log = logging.getLogger(__name__)
 
 MAX_TOKENS = 512  # the model's input limit (context + sentence)
+# Letters of scripts other than Latin (CJK, Cyrillic, Greek, Arabic, Hebrew, Hangul...).
+# Qwen sometimes drifts into Chinese ("AKINCI-5机器人是最快的。"); the multilingual NLI
+# model accepts such a sentence because its meaning is right, and the TTS cannot say it.
+_FOREIGN_SCRIPT = re.compile(r"[^\W\d_a-zA-ZçğıöşüÇĞİÖŞÜâîûÂÎÛéèêëàáäôóòñ]")
+# Clause boundaries where an appended claim usually starts.
+_CLAUSE = re.compile(r",\s+|;\s+|\s+(?:veya|ya da|yani|olup|ve bu|or|which is|that is)\s+", re.IGNORECASE)
 
 
 class Verifier:
@@ -108,6 +114,21 @@ class Verifier:
         claim, context = words(sentence), words(" ".join(passages))
         return bool(claim) and len(claim & context) / len(claim) >= min_share
 
+    def supported_prefix(self, sentence: str, passages: list[str]) -> str | None:
+        """The longest leading part of a rejected sentence that is supported.
+
+        The model sometimes appends an invented clause to a correct fact,
+        e.g. a unit conversion: "Ada-7'in boyu 166 santimetre veya 1,66 metre
+        olur." (the prompt forbids converting; a 3B model still does). The
+        sentence is split at clause boundaries and the longest prefix that
+        passes the same checks is kept: "Ada-7'in boyu 166 santimetre."."""
+        clauses = _CLAUSE.split(sentence.strip().rstrip(".!?"))
+        for k in range(len(clauses) - 1, 0, -1):
+            prefix = " ".join(c for c in clauses[:k]).strip(" ,;")
+            if len(prefix.split()) >= 3 and self.supported(prefix, passages):
+                return prefix + "."
+        return None
+
     def supported(self, sentence: str, passages: list[str]) -> bool:
         unknown = self._unknown_numbers(sentence, passages)
         if unknown:
@@ -142,13 +163,23 @@ def verified_sentences(tokens: Iterator[str], result, verifier: Verifier | None,
     def check(pieces):
         nonlocal sentence_so_far
         for s in pieces:
+            first_piece = not sentence_so_far
             claim = f"{sentence_so_far} {s}".strip()
             sentence_so_far = "" if s.rstrip().endswith((".", "!", "?")) else claim
+            if _FOREIGN_SCRIPT.search(s):  # never speak another language's script
+                log.info("Dropped sentence in another script: %r", s)
+                dropped.append(s)
+                continue
             if verifier is None or not result.passages or verifier.supported(claim, result.passages):
                 spoken.append(s)
                 yield s
-            else:
-                dropped.append(s)
+                continue
+            dropped.append(s)
+            # Keep the supported start of a sentence whose ending was invented.
+            if first_piece and (kept := verifier.supported_prefix(s, result.passages)):
+                log.info("Kept supported part: %r", kept)
+                spoken.append(kept)
+                yield kept
 
     for token in tokens:
         yield from check(splitter.push(token))

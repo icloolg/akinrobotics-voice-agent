@@ -1,5 +1,5 @@
-# Only for Whisper on an NVIDIA GPU (stt.device: cuda): CUDA 12 libraries for CTranslate2.
+# CUDA 12 libraries for Whisper (CTranslate2) on an NVIDIA GPU (stt.device: cuda).
 #     pip install -r requirements.txt -r requirements-gpu.txt
-# The CPU Docker image skips them (~1.2 GB); docker-compose.gpu.yml builds with GPU=1.
+# The Docker image always includes them, so the same image runs on GPU and CPU.
 nvidia-cublas-cu12
 nvidia-cudnn-cu12==9.*
