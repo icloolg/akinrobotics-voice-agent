@@ -16,3 +16,6 @@ tests/voice/recordings_mic65/
 
 # Fetched web pages (python -m scripts.fetch_web): regenerable, third-party content, not indexed
 knowledge_web/
+
+# IDE settings
+.idea/

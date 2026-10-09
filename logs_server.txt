@@ -1,27 +1,0 @@
-INFO:     Started server process [18140]
-INFO:     Waiting for application startup.
-17:43:50 | INFO    | app.providers.stt.faster_whisper | Whisper loaded: small (cuda, int8)
-17:43:59 | INFO    | app.providers.tts.piper | Piper voices loaded: {'tr': 'tr_TR-dfki-medium', 'en': 'en_US-lessac-medium'} @ 22050 Hz
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-17:44:00 | WARNING | huggingface_hub.utils._http | Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights:  90%|████████▉ | 179/199 [00:00<00:00, 1565.44it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 1725.02it/s]
-17:44:16 | INFO    | app.providers.llm.ollama | LLM warmed up: qwen2.5:3b
-17:44:16 | INFO    | app.providers.stt.faster_whisper | Detected 'no' not allowed -> retrying as 'tr'
-17:44:17 | INFO    | server | Ready.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:54113 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:54114 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:54117 - "WebSocket /ws" [accepted]
-INFO:     connection open
-17:44:29 | INFO    | server | Client connected
-17:44:34 | INFO    | app.pipeline | User (tr): Ada-7 kaç kilogram?
-17:44:34 | INFO    | app.agent.agent | Retrieval best=0.865 sources=['akinrobotics_robotlar_tr.md', 'akinrobotics_robotlar_tr.md', 'akinrobotics_robotlar_tr.md']
-17:44:38 | INFO    | metrics | TURN {"turn": 1, "ms": {"stt_done": 1100.7, "llm_first_token": 4252.4, "first_audio": 4636.2, "done": 4644.1}, "language": "tr", "question": "Ada-7 kaç kilogram?", "answer": "Ada-7 65 kilogram ağırdır.", "grounded": true, "sources": ["akinrobotics_robotlar_tr.md"], "retrieval_ms": 37.9, "stt_rtf": 0.478, "tts_rtf": 0.061, "user_audio_s": 2.3}
-17:44:42 | INFO    | app.pipeline | User (en): What is AROS?
-17:44:42 | INFO    | app.agent.agent | Retrieval best=0.862 sources=['akinrobotics_yazilim_tr.md', 'akinrobotics_yazilim_tr.md', 'akinrobotics_robotlar_tr.md']
-17:44:46 | INFO    | metrics | TURN {"turn": 2, "ms": {"stt_done": 1105.6, "llm_first_token": 3622.1, "first_audio": 4037.9, "done": 4863.9}, "language": "en", "question": "What is AROS?", "answer": "AROS is AKINROBOTICS' operating system for robots. It integrates robot development, control, artificial intelligence integration, and cloud management on a single platform. Its modular design makes it easier for users at different levels to develop robots.", "grounded": true, "sources": ["akinrobotics_robotlar_tr.md", "akinrobotics_yazilim_tr.md"], "retrieval_ms": 22.9, "stt_rtf": 0.72, "tts_rtf": 0.058, "user_audio_s": 1.54}
-17:44:51 | INFO    | app.pipeline | User (tr): Bugün hava nasıl?
-17:44:51 | INFO    | app.agent.agent | Retrieval best=0.785 sources=['akinrobotics_robotlar_tr.md', 'akinrobotics_robotlar_tr.md', 'akinrobotics_sirket_tr.md']
-17:44:51 | INFO    | metrics | TURN {"turn": 3, "ms": {"stt_done": 1110.7, "llm_first_token": 1132.2, "first_audio": 1287.5, "done": 1294.1}, "language": "tr", "question": "Bugün hava nasıl?", "answer": "Bu konuda bilgi kaynaklarımda bir bilgi bulamadım.", "grounded": false, "sources": [], "retrieval_ms": 20.9, "stt_rtf": 0.578, "tts_rtf": 0.056, "user_audio_s": 1.92}
-17:44:51 | INFO    | server | Client disconnected

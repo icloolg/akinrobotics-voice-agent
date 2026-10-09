@@ -2,6 +2,8 @@
 
 AKINROBOTICS robotları, AKINSOFT yazılımları ve iki şirket hakkındaki soruları Türkçe ve İngilizce, **sesli** ve kaynağa dayalı cevaplayan asistan. Bütün bileşenler açık kaynaklıdır ve yerelde çalışır.
 
+▶ **Demo videosu:** [AkınVoice_Demo.mp4 (Google Drive)](https://drive.google.com/file/d/1lE0KrPXu7F9c_RGolkagUBbUNQS82J3N/view?usp=sharing)
+
 ## Kurulum ve çalıştırma
 
 ```bash
